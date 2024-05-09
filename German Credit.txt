@@ -1,0 +1,23 @@
+Tập dữ liệu German Credit:
+
+1.  existing_checking: Tình trạng tài khoản ngân hàng thường dùng.
+2.  duration_month: Thời gian trả nợ (tháng).
+3.  credit_history: Lịch sử tín dụng.
+4.  purpose: Mục đích vay tiền.
+5.  credit_amount: Số tiền vay.
+6.  savings: Tài khoản tiết kiệm.
+7.  employment: Tình trạng việc làm.
+8.  installment_rate: Tỷ lệ trả góp hàng tháng.
+9.  personal_status: Tình trạng cá nhân.
+10. other_parties: Người tham gia khác trong hợp đồng.
+11. residence_since: Thời gian ở chỗ ở hiện tại (năm).
+12. property_magnitude: Mức độ tài sản sở hữu.
+13. cc_age: Tuổi của khách hàng.
+14. other_payment_plans: Kế hoạch thanh toán khác.
+15. housing: Tình trạng nhà ở.
+16. existing_credits: Số lượng tín dụng hiện tại.
+17. job: Nghề nghiệp.
+18. num_dependents: Số người phụ thuộc.
+19. own_telephone: Có sở hữu điện thoại hay không.
+20. foreign_worker: Là công nhân nước ngoài hay không.
+21. class: Biến dự đoán, cho biết khả năng trả nợ của khách hàng (Good hoặc Bad).
