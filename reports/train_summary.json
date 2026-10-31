@@ -1,0 +1,186 @@
+{
+  "version": "20261031T122611Z",
+  "seed": 42,
+  "config_hash": "19ccc521f0cef2e4da2e636e182df59432500456beddad76237c2816921b995c",
+  "deployed_model": "logistic",
+  "rows": {
+    "total": 1000,
+    "development": 800,
+    "holdout": 200,
+    "bad_rate": 0.3
+  },
+  "models": {
+    "logistic": {
+      "artifact": "C:\\Users\\HP\\Reeve\\798ac4bc-2c1\\gh-repos\\Classification-Credit-Customer\\models\\logistic\\20261031T122611Z",
+      "threshold": 0.19047619047619047,
+      "threshold_detail": {
+        "threshold": 0.19047619047619047,
+        "cost_per_1000": 543.75,
+        "best_cost_per_1000": 541.25,
+        "plateau_low": 0.16494845360824742,
+        "plateau_high": 0.19047619047619047,
+        "grid_size": 19
+      },
+      "holdout": {
+        "n": 200,
+        "bad_rate": 0.3,
+        "roc_auc": 0.8008928571428571,
+        "pr_auc": 0.6149428091735483,
+        "ks": 0.5357142857142858,
+        "brier": 0.1622560023030402,
+        "threshold": 0.19047619047619047,
+        "accuracy_at_threshold": 0.645,
+        "approval_rate": 0.425,
+        "expected_cost_per_1000": 515.0,
+        "cost_0_5_per_1000": 840.0,
+        "confusion": {
+          "true_good_approved": 77,
+          "true_good_rejected": 63,
+          "bad_approved": 8,
+          "bad_rejected": 52
+        }
+      },
+      "cv": {
+        "mean": {
+          "roc_auc": 0.7643973214285713,
+          "pr_auc": 0.5590130015104982,
+          "ks": 0.42857142857142855,
+          "brier": 0.17244661299760194,
+          "accuracy_at_threshold": 0.5675,
+          "expected_cost_per_1000": 537.5,
+          "cost_0_5_per_1000": 1123.75,
+          "approval_rate": 0.32
+        },
+        "sd": {
+          "roc_auc": 0.060990967741346644,
+          "pr_auc": 0.08232507578572806,
+          "ks": 0.08234425793010072,
+          "brier": 0.018425028026811712,
+          "accuracy_at_threshold": 0.06114148550697799,
+          "expected_cost_per_1000": 58.796524131958684,
+          "cost_0_5_per_1000": 157.33374161317082,
+          "approval_rate": 0.08378264289218859
+        },
+        "pooled": {
+          "n": 800,
+          "bad_rate": 0.3,
+          "roc_auc": 0.7599181547619047,
+          "pr_auc": 0.5616933596749173,
+          "ks": 0.3988095238095238,
+          "brier": 0.17244661299760192,
+          "threshold": 0.2025191965420799,
+          "accuracy_at_threshold": 0.5675,
+          "approval_rate": 0.32,
+          "expected_cost_per_1000": 537.5,
+          "cost_0_5_per_1000": 1123.75,
+          "confusion": {
+            "true_good_approved": 235,
+            "true_good_rejected": 325,
+            "bad_approved": 21,
+            "bad_rejected": 219
+          }
+        }
+      },
+      "cv_thresholds": [
+        0.2,
+        0.18,
+        0.21739130434782608,
+        0.19298245614035087,
+        0.2222222222222222
+      ],
+      "predictions": {
+        "cv": "C:\\Users\\HP\\Reeve\\798ac4bc-2c1\\gh-repos\\Classification-Credit-Customer\\reports\\predictions_cv_logistic.csv",
+        "holdout": "C:\\Users\\HP\\Reeve\\798ac4bc-2c1\\gh-repos\\Classification-Credit-Customer\\reports\\predictions_holdout_logistic.csv"
+      }
+    },
+    "lightgbm": {
+      "artifact": "C:\\Users\\HP\\Reeve\\798ac4bc-2c1\\gh-repos\\Classification-Credit-Customer\\models\\lightgbm\\20261031T122611Z",
+      "threshold": 0.2,
+      "threshold_detail": {
+        "threshold": 0.2,
+        "cost_per_1000": 526.25,
+        "best_cost_per_1000": 526.25,
+        "plateau_low": 0.14285714285714285,
+        "plateau_high": 0.2,
+        "grid_size": 19
+      },
+      "holdout": {
+        "n": 200,
+        "bad_rate": 0.3,
+        "roc_auc": 0.768154761904762,
+        "pr_auc": 0.6254359291802771,
+        "ks": 0.4404761904761905,
+        "brier": 0.1685111472756863,
+        "threshold": 0.2,
+        "accuracy_at_threshold": 0.52,
+        "approval_rate": 0.3,
+        "expected_cost_per_1000": 640.0,
+        "cost_0_5_per_1000": 725.0,
+        "confusion": {
+          "true_good_approved": 52,
+          "true_good_rejected": 88,
+          "bad_approved": 8,
+          "bad_rejected": 52
+        }
+      },
+      "cv": {
+        "mean": {
+          "roc_auc": 0.7859002976190477,
+          "pr_auc": 0.5820849577167484,
+          "ks": 0.468452380952381,
+          "brier": 0.1663767930145153,
+          "accuracy_at_threshold": 0.5912499999999999,
+          "expected_cost_per_1000": 553.75,
+          "cost_0_5_per_1000": 1003.75,
+          "approval_rate": 0.36375
+        },
+        "sd": {
+          "roc_auc": 0.045821315343367856,
+          "pr_auc": 0.07506304999416459,
+          "ks": 0.08810227610239006,
+          "brier": 0.017101777791837018,
+          "accuracy_at_threshold": 0.028159700815172002,
+          "expected_cost_per_1000": 100.44821426984156,
+          "cost_0_5_per_1000": 155.53586804978457,
+          "approval_rate": 0.08237205988683298
+        },
+        "pooled": {
+          "n": 800,
+          "bad_rate": 0.3,
+          "roc_auc": 0.7826339285714285,
+          "pr_auc": 0.5865002672396696,
+          "ks": 0.46130952380952384,
+          "brier": 0.1663767930145153,
+          "threshold": 0.2288073348111957,
+          "accuracy_at_threshold": 0.59125,
+          "approval_rate": 0.36375,
+          "expected_cost_per_1000": 553.75,
+          "cost_0_5_per_1000": 1003.7499999999999,
+          "confusion": {
+            "true_good_approved": 262,
+            "true_good_rejected": 298,
+            "bad_approved": 29,
+            "bad_rejected": 211
+          }
+        }
+      },
+      "cv_thresholds": [
+        0.20359281437125748,
+        0.19230769230769232,
+        0.20175438596491227,
+        0.2549019607843137,
+        0.2914798206278027
+      ],
+      "predictions": {
+        "cv": "C:\\Users\\HP\\Reeve\\798ac4bc-2c1\\gh-repos\\Classification-Credit-Customer\\reports\\predictions_cv_lightgbm.csv",
+        "holdout": "C:\\Users\\HP\\Reeve\\798ac4bc-2c1\\gh-repos\\Classification-Credit-Customer\\reports\\predictions_holdout_lightgbm.csv"
+      }
+    }
+  },
+  "policies": {
+    "always_approve_per_1000": 1500.0,
+    "always_reject_per_1000": 700.0,
+    "default_threshold": 0.5
+  },
+  "latest": "logistic/20261031T122611Z"
+}

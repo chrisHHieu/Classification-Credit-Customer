@@ -1,0 +1,36 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.env
+
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Data is downloaded, never committed.
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+
+# Generated artifacts.
+models/*
+!models/.gitkeep
+reports/*
+!reports/.gitkeep
+!reports/metrics.json
+!reports/drift.json
+!reports/train_summary.json
+!reports/figures/
+reports/figures/*
+!reports/figures/*.png
+
+.DS_Store
+Thumbs.db
+**/.ipynb_checkpoints/

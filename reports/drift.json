@@ -1,0 +1,286 @@
+{
+  "generated_at": "2026-10-31T12:30:26+00:00",
+  "reference": {
+    "model_type": "logistic",
+    "version": "20261031T122611Z",
+    "rows": 800,
+    "bins": 10
+  },
+  "input": "C:\\Users\\HP\\Reeve\\798ac4bc-2c1\\gh-repos\\Classification-Credit-Customer\\data\\processed\\credit_features.csv",
+  "thresholds": {
+    "warn": 0.1,
+    "alert": 0.25
+  },
+  "slices": {
+    "all": {
+      "rows": 1000,
+      "overall": "ok",
+      "max_psi": 0.004086,
+      "alert_count": 0,
+      "warn_count": 0,
+      "features": [
+        {
+          "feature": "purpose",
+          "type": "categorical",
+          "psi": 0.004086,
+          "status": "ok"
+        },
+        {
+          "feature": "age_years",
+          "type": "numeric",
+          "psi": 0.002823,
+          "status": "ok"
+        },
+        {
+          "feature": "employment_since",
+          "type": "categorical",
+          "psi": 0.002386,
+          "status": "ok"
+        },
+        {
+          "feature": "credit_amount_per_month",
+          "type": "numeric",
+          "psi": 0.001667,
+          "status": "ok"
+        },
+        {
+          "feature": "credit_amount",
+          "type": "numeric",
+          "psi": 0.001605,
+          "status": "ok"
+        },
+        {
+          "feature": "savings",
+          "type": "categorical",
+          "psi": 0.001247,
+          "status": "ok"
+        },
+        {
+          "feature": "personal_status_sex",
+          "type": "categorical",
+          "psi": 0.000906,
+          "status": "ok"
+        },
+        {
+          "feature": "other_debtors",
+          "type": "categorical",
+          "psi": 0.000747,
+          "status": "ok"
+        },
+        {
+          "feature": "installment_rate",
+          "type": "numeric",
+          "psi": 0.000548,
+          "status": "ok"
+        },
+        {
+          "feature": "credit_history",
+          "type": "categorical",
+          "psi": 0.000541,
+          "status": "ok"
+        },
+        {
+          "feature": "residence_since",
+          "type": "numeric",
+          "psi": 0.000499,
+          "status": "ok"
+        },
+        {
+          "feature": "job",
+          "type": "categorical",
+          "psi": 0.000467,
+          "status": "ok"
+        },
+        {
+          "feature": "duration_months",
+          "type": "numeric",
+          "psi": 0.000236,
+          "status": "ok"
+        },
+        {
+          "feature": "existing_credits",
+          "type": "numeric",
+          "psi": 0.00013,
+          "status": "ok"
+        },
+        {
+          "feature": "foreign_worker",
+          "type": "categorical",
+          "psi": 8.4e-05,
+          "status": "ok"
+        },
+        {
+          "feature": "other_installment_plans",
+          "type": "categorical",
+          "psi": 8e-05,
+          "status": "ok"
+        },
+        {
+          "feature": "property",
+          "type": "categorical",
+          "psi": 3.5e-05,
+          "status": "ok"
+        },
+        {
+          "feature": "telephone",
+          "type": "categorical",
+          "psi": 2.1e-05,
+          "status": "ok"
+        },
+        {
+          "feature": "checking_status",
+          "type": "categorical",
+          "psi": 2e-05,
+          "status": "ok"
+        },
+        {
+          "feature": "housing",
+          "type": "categorical",
+          "psi": 8e-06,
+          "status": "ok"
+        },
+        {
+          "feature": "people_liable",
+          "type": "numeric",
+          "psi": 0.0,
+          "status": "ok"
+        }
+      ]
+    },
+    "holdout": {
+      "rows": 200,
+      "overall": "ok",
+      "max_psi": 0.072544,
+      "alert_count": 0,
+      "warn_count": 0,
+      "features": [
+        {
+          "feature": "age_years",
+          "type": "numeric",
+          "psi": 0.072544,
+          "status": "ok"
+        },
+        {
+          "feature": "purpose",
+          "type": "categorical",
+          "psi": 0.07233,
+          "status": "ok"
+        },
+        {
+          "feature": "employment_since",
+          "type": "categorical",
+          "psi": 0.04768,
+          "status": "ok"
+        },
+        {
+          "feature": "credit_amount",
+          "type": "numeric",
+          "psi": 0.044379,
+          "status": "ok"
+        },
+        {
+          "feature": "credit_amount_per_month",
+          "type": "numeric",
+          "psi": 0.044276,
+          "status": "ok"
+        },
+        {
+          "feature": "savings",
+          "type": "categorical",
+          "psi": 0.037018,
+          "status": "ok"
+        },
+        {
+          "feature": "personal_status_sex",
+          "type": "categorical",
+          "psi": 0.026263,
+          "status": "ok"
+        },
+        {
+          "feature": "other_debtors",
+          "type": "categorical",
+          "psi": 0.015855,
+          "status": "ok"
+        },
+        {
+          "feature": "installment_rate",
+          "type": "numeric",
+          "psi": 0.014443,
+          "status": "ok"
+        },
+        {
+          "feature": "residence_since",
+          "type": "numeric",
+          "psi": 0.013845,
+          "status": "ok"
+        },
+        {
+          "feature": "credit_history",
+          "type": "categorical",
+          "psi": 0.013831,
+          "status": "ok"
+        },
+        {
+          "feature": "job",
+          "type": "categorical",
+          "psi": 0.010855,
+          "status": "ok"
+        },
+        {
+          "feature": "duration_months",
+          "type": "numeric",
+          "psi": 0.006131,
+          "status": "ok"
+        },
+        {
+          "feature": "existing_credits",
+          "type": "numeric",
+          "psi": 0.003289,
+          "status": "ok"
+        },
+        {
+          "feature": "foreign_worker",
+          "type": "categorical",
+          "psi": 0.002318,
+          "status": "ok"
+        },
+        {
+          "feature": "other_installment_plans",
+          "type": "categorical",
+          "psi": 0.002144,
+          "status": "ok"
+        },
+        {
+          "feature": "property",
+          "type": "categorical",
+          "psi": 0.000872,
+          "status": "ok"
+        },
+        {
+          "feature": "telephone",
+          "type": "categorical",
+          "psi": 0.000527,
+          "status": "ok"
+        },
+        {
+          "feature": "checking_status",
+          "type": "categorical",
+          "psi": 0.000504,
+          "status": "ok"
+        },
+        {
+          "feature": "housing",
+          "type": "categorical",
+          "psi": 0.000207,
+          "status": "ok"
+        },
+        {
+          "feature": "people_liable",
+          "type": "numeric",
+          "psi": 0.0,
+          "status": "ok"
+        }
+      ]
+    }
+  }
+}
