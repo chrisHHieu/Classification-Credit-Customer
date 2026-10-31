@@ -43,7 +43,7 @@ The same 200 held-out applications scored under the main policies:
 | Oracle threshold on holdout labels (not deployable) | 0.242 | 495.0 | 0.505 |
 
 The deployed policy is the logistic regression at 0.1892: 555.0 per 1000, which is
-15.0 below CatBoost and 370.0 below rejecting everyone.
+15.0 below CatBoost and 145.0 below rejecting everyone.
 
 What these numbers say:
 
@@ -51,8 +51,8 @@ What these numbers say:
   ranking.** CatBoost leads the held-out ROC-AUC (0.8047), PR-AUC (0.6690) and
   Brier (0.1549); the logistic regression leads on expected cost (555.0 against
   570.0) because its probabilities sit on the right side of the 5:1 break-even more
-  often, not because it ranks better. The 15.0 per 1000 gap is 3.5 applications'
-  worth of cost on a 200-row holdout, so it is not an established difference.
+  often, not because it ranks better. The 15.0 per 1000 gap is 3.0 cost units
+  on a 200-row holdout, so it is not an established difference.
 - **The threshold, not the model, produces most of the value.** Moving from 0.5 to
   the cost-optimal threshold cuts expected cost from 925.0 to 555.0 per 1000 for the
   deployed model, and from 620.0 to 570.0 for CatBoost. Accuracy on those same rows
@@ -60,7 +60,9 @@ What these numbers say:
   accuracy is the wrong objective when a bad loan costs five times a good one.
 - **Calibration and conformal coverage differ by family.** At a nominal 90 percent,
   the split-conformal band covers 0.915 of holdout rows for logistic and CatBoost,
-  0.910 for LightGBM and XGBoost. ECE on the holdout is 0.0700 for logistic, 0.0461
+  0.910 for LightGBM and XGBoost. `reports/train_summary.json` reports a different
+  number for the same models (0.93 for logistic) because it is written before the
+  scored run and measures coverage on the inner folds; its `slice` field says so. ECE on the holdout is 0.0700 for logistic, 0.0461
   for LightGBM, 0.0611 for XGBoost and 0.0695 for CatBoost; the boosted models are
   better calibrated out of the box than the linear one, which is why isotonic
   calibration was chosen per candidate instead of assumed.
@@ -169,14 +171,14 @@ On the run recorded here the whole processed file scores PSI 0.0041 at worst (`p
 
 ## Limitations
 
-- **Sample size.** 1000 rows, 200 of them held out. The difference between the two models is smaller than one fold standard deviation, so the ranking between them is not established. Treat the CV mean as the headline and the holdout as a sanity check.
-- **The notebook's 0.911 accuracy is not comparable.** It was measured on a SMOTE-balanced test set after oversampling the full frame, and the AUC printed there was computed from hard labels. This rebuild reports 0.764 to 0.786 CV ROC-AUC across the two candidates and 0.645 accuracy for the deployed policy at the real 30 percent default rate. The accuracy drop is the cost policy working, not a regression; the AUC is the honest measure of ranking.
+- **Sample size.** 1000 rows, 200 of them held out. The spread between the best and worst candidate is 43.8 per 1000 in CV and 40.0 on the holdout, both smaller than one fold standard deviation of the CV cost, so the ranking is not established. Treat the CV mean as the headline and the holdout as a sanity check.
+- **The notebook's 0.911 accuracy is not comparable.** It was measured on a SMOTE-balanced test set after oversampling the full frame, and the AUC printed there was computed from hard labels. This rebuild reports 0.771 to 0.785 CV ROC-AUC across the four candidates and 0.605 accuracy for the deployed policy on the held-out 200 at the real 30 percent default rate. The accuracy drop is the cost policy working, not a regression; the AUC is the honest measure of ranking.
 - **The cost ratio is an assumption.** 5:1 comes from the dataset documentation, not from this business. At a different ratio the optimal threshold moves: the break-even is `cost_good_rejected / (cost_good_rejected + cost_bad_approved)`, 1/6 here.
 - **Costs are realised costs on observed labels.** There is no reject inference: the model never sees what would have happened to applicants it rejected, so the estimated saving assumes the historical labels are what the policy would face.
 - **No fairness audit.** `personal_status_sex`, `age_years` and `foreign_worker` are inputs, and the data comes from 1970s Germany. The pipeline reports no subgroup metrics and should not be used for decisions about people without one.
-- **Calibration is not a free win here.** As reported above, the Brier score did not improve on the holdout for either candidate: 0.1543 to 0.1623 for the deployed logistic regression, 0.1673 to 0.1685 for LightGBM. The calibrator is fitted on inner folds of an 800-row training set, which is small for isotonic regression.
+- **Calibration is not a free win here.** For the deployed logistic regression it raised the holdout Brier from 0.1531 uncalibrated to 0.1613 calibrated. The run records the uncalibrated Brier only for the deployed candidate, so this README makes no claim about the other three; all four selected isotonic, and the calibrator is fitted on inner folds of an 800-row training set, which is small for isotonic regression.
 - **One threshold for everyone.** The cost-optimal threshold is a single scalar; segment-specific thresholds and capacity constraints (for example a fixed approval budget) are not modelled.
-- **The search is small.** Optuna ran 10 trials per model on the development folds, not on the holdout, and CatBoost kept its configured parameters because the search stalled there. A 1000-row dataset does not support a large search: more trials mostly fit fold noise.
+- **The search is small and partly inherited.** The Optuna studies are resumed by name, so the logistic and LightGBM studies hold 33 trials each: 23 from an earlier invocation and 10 from the one that wrote `configs/tuned.yaml`. Both best values come from that earlier invocation (trial 14 and trial 15), which the header of `configs/tuned.yaml` records. CatBoost kept its configured parameters because its study stalled with two trials still `RUNNING`. A 1000-row dataset does not support a large search: more trials mostly fit fold noise.
 - **Reason codes are not explanations in the regulatory sense.** They are additive contributions to a model score, and correlated features share credit arbitrarily.
 
 ## Project layout

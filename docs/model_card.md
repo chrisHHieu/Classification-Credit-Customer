@@ -1,6 +1,6 @@
 # Model card: Statlog German Credit default model
 
-Version 20261031T122611Z. Generated from the run recorded in `reports/metrics.json` and `models/logistic/20261031T122611Z/metadata.json`.
+Version 20261031T151314Z. Generated from the run recorded in `reports/metrics.json` and `models/logistic/20261031T151314Z/metadata.json`.
 
 ## Overview
 
@@ -10,12 +10,12 @@ Version 20261031T122611Z. Generated from the run recorded in `reports/metrics.js
 | Positive class | `default`, encoded as 1 when the raw Statlog target is 2 (bad credit risk) |
 | Data | UCI Statlog German Credit, 1000 rows, 20 attributes |
 | Features | 20 raw attributes plus `credit_amount_per_month`, one-hot encoded (62 encoded columns after fitting) |
-| Deployed model | Logistic regression, L2, C=1.0, on scaled numeric features and one-hot categoricals |
-| Challenger | LightGBM, 400 trees, learning rate 0.03, 15 leaves, row and column subsampling, single thread, deterministic |
+| Deployed model | Logistic regression, L2, `C=0.3101` from the Optuna search, on scaled numeric features and one-hot categoricals |
+| Challenger | LightGBM, 600 trees, learning rate 0.0104, 11 leaves, `min_child_samples` 54, subsample 0.719, `colsample_bytree` 0.528, L2 0.0459, single thread, deterministic |
 | Calibration | Isotonic regression fitted on inner 3-fold out-of-fold predictions, same procedure for both |
-| Decision threshold | 0.1905 for the deployed model, 0.200 for the challenger, each chosen by minimum expected cost on inner folds only |
+| Decision threshold | 0.1892 for the deployed model, 0.1765 for LightGBM, 0.1852 for XGBoost, 0.2593 for CatBoost, each chosen by minimum expected cost on inner folds only |
 | Cost matrix | approving a bad applicant costs 5; rejecting a good applicant costs 1 |
-| Artifact | `models/logistic/20261031T122611Z/`, pointer at `models/latest` |
+| Artifact | `models/logistic/20261031T151314Z/`, pointer at `models/latest` |
 | Seed | 42 |
 | Licence | MIT for the code; the data stays under the UCI terms |
 
@@ -44,8 +44,9 @@ expected cost, the objective the project is built around: logistic regression at
 has the better held-out ranking (ROC-AUC 0.8047 against 0.8002) and the better
 Brier (0.1549 against 0.1613); it loses on cost because of where its calibrated
 probabilities cross the 5:1 threshold, not because it ranks worse. With 200 holdout
-rows the 15.0 gap is inside noise, so the rule stays cost, and the rule is recorded
-in `reports/train_summary.json` next to the numbers.
+rows the 15.0 gap is inside noise, so the rule stays cost. The rule itself is the
+`min` over held-out expected cost at `src/credit_risk/models/train.py:383`, and its
+outcome is written to `reports/train_summary.json` under `champion`.
 
 ## Measured performance
 
@@ -100,7 +101,7 @@ the third decimal as noise.
 
 The expected cost of approving applicant i is `5 * P(default)`; the expected cost of rejecting is `1 * (1 - P(default))`. The break-even is `P = 1/6 = 0.167`. The implemented search minimises realised cost over a grid of calibrated inner-fold probabilities, keeps the highest threshold within one percent of the minimum, and reports the plateau.
 
-For the deployed logistic regression the chosen threshold 0.1905 has a plateau of 0.165 to 0.1905, and costs 543.75 per 1000 on the training partition against a minimum of 541.25. For LightGBM the threshold 0.200 has a plateau of 0.143 to 0.200. Neither decision sits on a knife edge, and the rule is identical for both models, so switching the deployed model does not change the decision logic.
+For the deployed logistic regression the chosen threshold 0.1892 sits on a plateau from 0.1667 to 0.1892 and costs 527.5 per 1000 on the inner-fold predictions, the minimum of the grid. LightGBM chose 0.1765 at 535.0, XGBoost 0.1852 at 537.5, and CatBoost 0.2593 at 520.0 against a grid minimum of 517.5. The rule is identical for all four candidates, so switching the deployed model does not change the decision logic.
 
 ## Explainability
 
@@ -114,12 +115,12 @@ In both cases contributions from the one-hot columns of the same attribute are s
 
 ## Limitations
 
-- 1000 rows total and 200 held out; confidence intervals are wide and the two models are not separable on this data. The deployment choice rests on one 200-row holdout and would need re-measuring on more data.
+- 1000 rows total and 200 held out; confidence intervals are wide and the four candidates are not separable on this data. The deployment choice rests on one 200-row holdout and would need re-measuring on more data.
 - The 5:1 cost ratio is taken from the dataset documentation, not measured for any business.
 - Costs are computed against observed labels; rejected applicants have no counterfactual outcome.
-- Isotonic calibration adds variance at this sample size and did not improve the Brier score for either model.
+- Isotonic calibration adds variance at this sample size and raised the deployed logistic's holdout Brier from 0.1531 to 0.1613; the uncalibrated Brier is recorded only for the deployed candidate, so nothing is claimed about the other three.
 - A single global threshold is used; no capacity constraint or segment policy.
-- No hyperparameter search was performed, to keep the held-out set clean.
+- The Optuna search is modest and was run while studies were being resumed: the logistic and LightGBM studies hold 33 trials each, of which 10 came from the command that wrote `configs/tuned.yaml` and 23 from an earlier one, and both best values (trial 14 and trial 15) come from that earlier invocation. CatBoost kept its configured parameters because its study stalled with two trials left `RUNNING`. Searches read the development folds only.
 
 ## Reproduction
 

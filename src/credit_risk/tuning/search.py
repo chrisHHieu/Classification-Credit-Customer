@@ -30,6 +30,11 @@ from credit_risk.models.train import fit_calibrated
 TIMEOUT_MESSAGE = "optuna is not installed"
 
 
+def _naive(value: datetime) -> datetime:
+    """Optuna hands back the timestamps sqlite stored, which carry no timezone."""
+    return value.replace(tzinfo=None) if value.tzinfo is not None else value
+
+
 class OptunaUnavailable(RuntimeError):
     """Raised when optuna cannot be imported."""
 
@@ -163,6 +168,10 @@ def tune(
 
     for model_type in usable:
         study = _study(cfg, model_type, n_trials, limit)
+        # Studies are resumed by name, so the trial list holds every earlier
+        # invocation too. Record both counts: the run just made and the study
+        # total the sampler actually saw.
+        started = datetime.now(UTC)
 
         def objective(trial, model_type=model_type):
             params = suggest(trial, model_type)
@@ -171,14 +180,25 @@ def tune(
             return result["cost_per_1000"]
 
         study.optimize(objective, n_trials=n_trials, timeout=limit or None, gc_after_trial=True)
+        this_run = [
+            trial
+            for trial in study.trials
+            if trial.datetime_start is not None
+            and _naive(trial.datetime_start) >= _naive(started)
+        ]
         pruned = sum(1 for trial in study.trials if trial.state == optuna.trial.TrialState.PRUNED)
         results["models"][model_type] = {
             "study": study.study_name,
             "storage": str(cfg.optuna_storage),
             "trials": len(study.trials),
+            "trials_this_run": len(this_run),
             "pruned": pruned,
+            "pruned_this_run": sum(
+                1 for trial in this_run if trial.state == optuna.trial.TrialState.PRUNED
+            ),
             "best_value": float(study.best_value),
             "best_params": dict(study.best_params),
+            "best_trial_number": int(study.best_trial.number),
             "best_roc_auc": study.best_trial.user_attrs.get("roc_auc"),
         }
     results["git_commit"] = registry.git_commit(cfg.root)
@@ -205,8 +225,10 @@ def write_tuned_config(
     ]
     for model_type, entry in results["models"].items():
         lines.append(
-            f"# {model_type}: best {entry['best_value']:.2f} per 1000"
-            f" over {entry['trials']} trials ({entry['pruned']} pruned)."
+            f"# {model_type}: best {entry['best_value']:.2f} per 1000, trial"
+            f" {entry.get('best_trial_number', '?')} of {entry['trials']} in this study;"
+            f" {entry.get('trials_this_run', entry['trials'])} trials run by this command"
+            f" and {entry['pruned']} pruned in total."
         )
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(
@@ -221,7 +243,10 @@ def format_results(results: dict) -> str:
     for model_type, entry in results["models"].items():
         lines.append(
             f"{model_type:10s} best {entry['best_value']:8.2f}"
-            f"  trials {entry['trials']:3d}  pruned {entry['pruned']:3d}"
+            f"  trials {entry.get('trials_this_run', entry['trials']):3d} this run"
+            f" / {entry['trials']:3d} in the study"
+            f"  pruned {entry['pruned']:3d}"
+            f"  best trial {entry.get('best_trial_number', 0):3d}"
             f"  params {entry['best_params']}"
         )
     for name, reason in results.get("skipped", {}).items():

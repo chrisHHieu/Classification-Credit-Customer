@@ -113,11 +113,16 @@ def _conformal_summary(model: CalibratedModel, holdout_metrics: dict) -> dict | 
 
     ``to_dict`` carries the calibration-side settings; the empirical coverage can
     only be observed on rows the calibrator never saw, so it is merged in here.
+    When the holdout block is absent (the training-time summary), the coverage
+    reported is the one measured on the inner folds, and ``slice`` says so.
     """
     if not model.conformal:
         return None
     summary = model.conformal.to_dict()
-    summary.update(holdout_metrics.get("conformal") or {})
+    summary["slice"] = "inner_folds"
+    if holdout_metrics.get("conformal"):
+        summary.update(holdout_metrics["conformal"])
+        summary["slice"] = "holdout"
     return summary
 
 

@@ -43,7 +43,8 @@
         "approve_rate": 0.505,
         "review_rate": 0.415,
         "reject_rate": 0.08,
-        "empty_set_rate": 0.0
+        "empty_set_rate": 0.0,
+        "slice": "inner_folds"
       },
       "holdout": {
         "n": 200,
@@ -165,7 +166,8 @@
         "approve_rate": 0.58,
         "review_rate": 0.385,
         "reject_rate": 0.035,
-        "empty_set_rate": 0.0
+        "empty_set_rate": 0.0,
+        "slice": "inner_folds"
       },
       "holdout": {
         "n": 200,
@@ -287,7 +289,8 @@
         "approve_rate": 0.62,
         "review_rate": 0.38,
         "reject_rate": 0.0,
-        "empty_set_rate": 0.0
+        "empty_set_rate": 0.0,
+        "slice": "inner_folds"
       },
       "holdout": {
         "n": 200,
@@ -409,7 +412,8 @@
         "approve_rate": 0.61,
         "review_rate": 0.355,
         "reject_rate": 0.035,
-        "empty_set_rate": 0.0
+        "empty_set_rate": 0.0,
+        "slice": "inner_folds"
       },
       "holdout": {
         "n": 200,
