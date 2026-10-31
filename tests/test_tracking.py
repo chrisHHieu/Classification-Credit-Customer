@@ -74,7 +74,12 @@ def test_file_store_still_logs_a_run(project, tmp_path, monkeypatch) -> None:
 @pytest.mark.modern
 def test_unreachable_store_is_recorded_not_raised(project, tmp_path, monkeypatch) -> None:
     """A tracking outage must never cost a finished training run."""
-    monkeypatch.setenv("MLFLOW_TRACKING_URI", "sqlite:///Z:/no/such/directory/mlflow.db")
+    # A regular file used as the parent directory fails to open on Windows and
+    # on Linux alike, which a drive letter such as Z: does not (POSIX reads it as
+    # a relative path and happily creates the store).
+    blocker = tmp_path / "not_a_directory"
+    blocker.write_text("", encoding="utf-8")
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", f"sqlite:///{(blocker / 'mlflow.db').as_posix()}")
     bundle, _ = registry.load_bundle(project.cfg, "logistic")
     record = tracking.log_training_run(
         project.cfg,
