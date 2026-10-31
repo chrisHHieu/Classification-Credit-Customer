@@ -123,26 +123,74 @@ class CalibrationConfig:
 
     def __post_init__(self) -> None:
         _as_type(self.inner_splits, int, "calibration.inner_splits")
-        if self.method != "isotonic":
-            raise ConfigError("calibration.method must be 'isotonic'")
+        allowed = {"isotonic", "platt", "auto"}
+        if self.method not in allowed:
+            raise ConfigError(f"calibration.method must be one of {sorted(allowed)}")
         if self.inner_splits < 2:
             raise ConfigError("calibration.inner_splits must be at least 2")
+
+
+@dataclass(frozen=True)
+class ConformalConfig:
+    """Split-conformal label sets: ``alpha`` is the allowed miscoverage."""
+
+    alpha: float
+
+    def __post_init__(self) -> None:
+        _as_type(self.alpha, float, "conformal.alpha")
+        if not 0.0 < self.alpha < 1.0:
+            raise ConfigError("conformal.alpha must be between 0 and 1")
+
+
+@dataclass(frozen=True)
+class SearchConfig:
+    trials: int
+    timeout_seconds: int
+    seed: int
+    storage: str
+
+    def __post_init__(self) -> None:
+        _as_type(self.trials, int, "train.search.trials")
+        _as_type(self.timeout_seconds, int, "train.search.timeout_seconds")
+        _as_type(self.seed, int, "train.search.seed")
+        if self.trials < 1:
+            raise ConfigError("train.search.trials must be at least 1")
+        if self.timeout_seconds < 0:
+            raise ConfigError("train.search.timeout_seconds must be zero or positive")
+        if not isinstance(self.storage, str) or not self.storage:
+            raise ConfigError("train.search.storage must be a non empty path")
+
+
+CANDIDATE_NAMES: tuple[str, ...] = ("logistic", "lightgbm", "xgboost", "catboost")
 
 
 @dataclass(frozen=True)
 class TrainConfig:
     deployed_model: str
     label: str
+    candidates: list[str]
+    search: SearchConfig
     lightgbm: dict[str, Any] = field(default_factory=dict)
     logistic: dict[str, Any] = field(default_factory=dict)
+    xgboost: dict[str, Any] = field(default_factory=dict)
+    catboost: dict[str, Any] = field(default_factory=dict)
     permutation_repeats: int = 10
 
     def __post_init__(self) -> None:
         _as_type(self.permutation_repeats, int, "train.permutation_repeats")
-        if self.deployed_model not in {"lightgbm", "logistic"}:
-            raise ConfigError("train.deployed_model must be 'lightgbm' or 'logistic'")
-        if not isinstance(self.lightgbm, dict) or not isinstance(self.logistic, dict):
-            raise ConfigError("train.lightgbm and train.logistic must be mappings")
+        if not isinstance(self.candidates, list) or not self.candidates:
+            raise ConfigError("train.candidates must be a non empty list")
+        unknown = sorted(set(self.candidates) - set(CANDIDATE_NAMES))
+        if unknown:
+            raise ConfigError(f"train.candidates has unknown models {unknown}")
+        if len(set(self.candidates)) != len(self.candidates):
+            raise ConfigError("train.candidates must not repeat a model")
+        if self.deployed_model not in self.candidates:
+            raise ConfigError("train.deployed_model must be one of train.candidates")
+        for name in CANDIDATE_NAMES:
+            params = getattr(self, name)
+            if not isinstance(params, dict):
+                raise ConfigError(f"train.{name} must be a mapping")
 
 
 @dataclass(frozen=True)
@@ -179,6 +227,7 @@ class Config:
     split: SplitConfig
     cost: CostConfig
     calibration: CalibrationConfig
+    conformal: ConformalConfig
     train: TrainConfig
     drift: DriftConfig
     serving: ServingConfig
@@ -237,6 +286,19 @@ class Config:
     def drift_file(self) -> Path:
         return self.reports_dir / "drift.json"
 
+    @property
+    def evidently_html(self) -> Path:
+        return self.reports_dir / "drift_evidently.html"
+
+    @property
+    def evidently_json(self) -> Path:
+        return self.reports_dir / "drift_evidently.json"
+
+    @property
+    def optuna_storage(self) -> Path:
+        path = Path(self.train.search.storage)
+        return path if path.is_absolute() else (self.root / path)
+
     # Metadata helpers -------------------------------------------------------------
     def to_dict(self) -> dict[str, Any]:
         as_dict = dataclasses.asdict(self)
@@ -269,7 +331,17 @@ def load_config(
     if not isinstance(raw, dict):
         raise ConfigError(f"{config_path}: expected a mapping at the top level")
 
-    required = {"seed", "paths", "data", "split", "cost", "calibration", "train", "drift"}
+    required = {
+        "seed",
+        "paths",
+        "data",
+        "split",
+        "cost",
+        "calibration",
+        "conformal",
+        "train",
+        "drift",
+    }
     unknown = sorted(set(raw) - required - {"serving"})
     if unknown:
         raise ConfigError(f"{config_path}: unknown sections {unknown}")
@@ -279,6 +351,8 @@ def load_config(
     base_root = Path(root) if root else Path.cwd()
     base_root = base_root if base_root.is_absolute() else base_root.resolve()
 
+    train_raw = dict(raw["train"])
+    train_raw["search"] = _build(SearchConfig, raw["train"]["search"], "train.search")
     cfg = Config(
         seed=_as_type(raw["seed"], int, "seed"),
         root=base_root,
@@ -287,7 +361,8 @@ def load_config(
         split=_build(SplitConfig, raw["split"], "split"),
         cost=_build(CostConfig, raw["cost"], "cost"),
         calibration=_build(CalibrationConfig, raw["calibration"], "calibration"),
-        train=_build(TrainConfig, raw["train"], "train"),
+        conformal=_build(ConformalConfig, raw["conformal"], "conformal"),
+        train=_build(TrainConfig, train_raw, "train"),
         drift=_build(DriftConfig, raw["drift"], "drift"),
         serving=_build(ServingConfig, raw["serving"], "serving"),
         source_file=config_path,

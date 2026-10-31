@@ -26,8 +26,9 @@ from credit_risk.config import Config  # noqa: E402
 from credit_risk.data.fetch import sha256_file  # noqa: E402
 from credit_risk.data.schema import FEATURE_LABELS, LABEL_COLUMN  # noqa: E402
 from credit_risk.features.build import feature_frame, load_processed  # noqa: E402
-from credit_risk.models import registry  # noqa: E402
+from credit_risk.models import candidates, registry  # noqa: E402
 from credit_risk.models.bundle import CalibratedModel  # noqa: E402
+from credit_risk.models.conformal import ConformalCalibrator, coverage  # noqa: E402
 from credit_risk.models.metrics import (  # noqa: E402
     always_approve_cost,
     always_reject_cost,
@@ -37,8 +38,13 @@ from credit_risk.models.metrics import (  # noqa: E402
     metrics_with_row_thresholds,
 )
 
-MODEL_ORDER = ("logistic", "lightgbm")
-COLORS = {"logistic": "#4c72b0", "lightgbm": "#c44e52"}
+MODEL_ORDER = candidates.CANDIDATES
+COLORS = {
+    "logistic": "#4c72b0",
+    "lightgbm": "#c44e52",
+    "xgboost": "#55a868",
+    "catboost": "#b07aa1",
+}
 
 
 class EvaluationError(RuntimeError):
@@ -56,6 +62,47 @@ def load_predictions(cfg: Config, kind: str, model_type: str) -> pd.DataFrame:
     return pd.read_csv(path)
 
 
+def available_models(cfg: Config) -> list[str]:
+    """Candidates with holdout predictions on disk, config order first."""
+    present = [
+        model for model in MODEL_ORDER if predictions_path(cfg, "holdout", model).exists()
+    ]
+    ordered = [model for model in cfg.train.candidates if model in present]
+    ordered += [model for model in present if model not in ordered]
+    if not ordered:
+        raise EvaluationError(
+            f"no predictions under {cfg.reports_dir}, run 'credit_risk train' first"
+        )
+    return ordered
+
+
+def _model_version(cfg: Config, model_type: str) -> str | None:
+    versions = registry.list_versions(cfg, model_type)
+    return versions[-1] if versions else None
+
+
+def conformal_summary(cfg: Config, model_type: str, predictions: pd.DataFrame) -> dict | None:
+    """Empirical coverage of the stored conformal band on the held-out rows."""
+    version = _model_version(cfg, model_type)
+    if version is None:
+        return None
+    try:
+        metadata = registry.load_metadata(cfg, model_type, version)
+    except registry.RegistryError:
+        return None
+    spec = metadata.get("conformal")
+    if not spec:
+        return None
+    calibrator = ConformalCalibrator(
+        alpha=float(spec["alpha"]),
+        quantile=float(spec["quantile"]),
+        n_calibration=int(spec["n_calibration"]),
+    )
+    block = coverage(predictions["p_bad"], predictions["y_default"], calibrator)
+    block["model_version"] = version
+    return block
+
+
 def cv_summary(predictions: pd.DataFrame, cfg: Config) -> dict:
     """Recompute the fold table from saved cross-validation predictions."""
     fold_metrics = []
@@ -69,6 +116,7 @@ def cv_summary(predictions: pd.DataFrame, cfg: Config) -> dict:
         "pr_auc",
         "ks",
         "brier",
+        "ece",
         "accuracy_at_threshold",
         "expected_cost_per_1000",
         "cost_0_5_per_1000",
@@ -186,13 +234,19 @@ def plot_calibration(
     raw = bundle.raw_score(frame)
     calibrated = bundle.predict_proba_bad(frame)
     fig, axes = plt.subplots(1, 2, figsize=(10, 4.2))
+    method = bundle.calibration_method
     for axis, probability, title in (
         (axes[0], raw, "before calibration"),
-        (axes[1], calibrated, "after isotonic calibration"),
+        (axes[1], calibrated, f"after {method} calibration"),
     ):
         mean_predicted, fraction_positive = _reliability(y, probability, bins)
         axis.plot([0, 1], [0, 1], linestyle=":", color="grey", linewidth=1)
-        axis.plot(mean_predicted, fraction_positive, marker="o", color=COLORS["lightgbm"])
+        axis.plot(
+            mean_predicted,
+            fraction_positive,
+            marker="o",
+            color=COLORS.get(bundle.model_type),
+        )
         axis.set_xlabel("mean predicted P(default)")
         axis.set_ylabel("observed share of defaults")
         axis.set_title(title)
@@ -352,8 +406,10 @@ def run_evaluation(cfg: Config) -> dict:
     holdout_metrics: dict[str, dict] = {}
     cv_results: dict[str, dict] = {}
     thresholds: dict[str, float] = {}
+    conformal_results: dict[str, dict] = {}
 
-    for candidate in MODEL_ORDER:
+    models = available_models(cfg)
+    for candidate in models:
         holdout_predictions[candidate] = load_predictions(cfg, "holdout", candidate)
         cv_predictions[candidate] = load_predictions(cfg, "cv", candidate)
         threshold = float(holdout_predictions[candidate]["threshold"].iloc[0])
@@ -364,6 +420,10 @@ def run_evaluation(cfg: Config) -> dict:
             threshold,
             cfg.cost,
         )
+        conformal_block = conformal_summary(cfg, candidate, holdout_predictions[candidate])
+        if conformal_block:
+            holdout_metrics[candidate]["conformal"] = conformal_block
+            conformal_results[candidate] = conformal_block
         cv_results[candidate] = cv_summary(cv_predictions[candidate], cfg)
 
     if len(holdout_predictions[model_type]) != len(holdout_frame):
@@ -377,7 +437,7 @@ def run_evaluation(cfg: Config) -> dict:
     }
 
     cost_rows = []
-    for candidate in MODEL_ORDER:
+    for candidate in models:
         frame_predictions = holdout_predictions[candidate]
         cost_rows.append(
             _cost_row(
@@ -493,7 +553,9 @@ def run_evaluation(cfg: Config) -> dict:
             "headline": "stratified 5-fold CV on the 80 percent development partition",
             "holdout": "single stratified 20 percent split, frozen before training",
             "calibration": "isotonic, fitted on inner 3-fold out-of-fold predictions",
+            "calibration_detail": "isotonic or Platt, chosen per model by inner-fold Brier",
             "threshold": "minimum expected cost on inner-fold predictions only, 5:1 ratio",
+            "conformal": "split-conformal label sets fitted on inner-fold predictions",
             "cost_matrix": {
                 "approve_bad": cfg.cost.cost_bad_approved,
                 "reject_good": cfg.cost.cost_good_rejected,
@@ -503,6 +565,7 @@ def run_evaluation(cfg: Config) -> dict:
         "cv": cv_results,
         "cost_table": cost_rows,
         "calibration": calibration_block,
+        "conformal": conformal_results,
         "permutation_importance": importance,
         "consistency": consistency,
         "figures": [path.relative_to(cfg.root).as_posix() for path in figure_paths],
@@ -521,19 +584,23 @@ def format_evaluation(payload: dict) -> str:
         f"  threshold {payload['model']['threshold']:.4f}",
         "",
         f"{'model':10s} {'split':10s} {'roc_auc':>8s} {'pr_auc':>8s} {'ks':>7s}"
-        f" {'brier':>7s} {'acc':>6s} {'cost/1k':>9s}",
+        f" {'brier':>7s} {'ece':>6s} {'acc':>6s} {'cost/1k':>9s} {'cover':>6s}",
     ]
     for name, entry in payload["holdout"].items():
+        conformal = entry.get("conformal") or {}
+        cover = conformal.get("empirical_coverage", float("nan"))
         lines.append(
             f"{name:10s} {'holdout':10s} {entry['roc_auc']:8.4f} {entry['pr_auc']:8.4f}"
-            f" {entry['ks']:7.4f} {entry['brier']:7.4f} {entry['accuracy_at_threshold']:6.3f}"
-            f" {entry['expected_cost_per_1000']:9.1f}"
+            f" {entry['ks']:7.4f} {entry['brier']:7.4f} {entry['ece']:6.4f}"
+            f" {entry['accuracy_at_threshold']:6.3f}"
+            f" {entry['expected_cost_per_1000']:9.1f} {cover:6.3f}"
         )
     for name, entry in payload["cv"].items():
         mean = entry["mean"]
         lines.append(
             f"{name:10s} {'cv mean':10s} {mean['roc_auc']:8.4f} {mean['pr_auc']:8.4f}"
-            f" {mean['ks']:7.4f} {mean['brier']:7.4f} {mean['accuracy_at_threshold']:6.3f}"
+            f" {mean['ks']:7.4f} {mean['brier']:7.4f} {mean['ece']:6.4f}"
+            f" {mean['accuracy_at_threshold']:6.3f}"
             f" {mean['expected_cost_per_1000']:9.1f}"
         )
     lines.append("")

@@ -68,6 +68,28 @@ def ks_statistic(y_true, p_bad) -> float:
     return float(np.max(tpr - fpr))
 
 
+def expected_calibration_error(y_true, p_bad, bins: int = 10) -> float:
+    """Weighted gap between predicted probability and observed default rate.
+
+    Quantile bins keep each bucket populated, which matters with 200 held-out
+    rows. Rows are ordered by predicted probability, so a model that is
+    confidently wrong is penalised more than one that is unsure.
+    """
+    y, p = _arrays(y_true, p_bad)
+    if len(y) == 0:
+        return float("nan")
+    order = np.argsort(p)
+    chunks = np.array_split(order, min(bins, len(order)))
+    total = 0.0
+    for chunk in chunks:
+        if len(chunk) == 0:
+            continue
+        confidence = float(p[chunk].mean())
+        frequency = float(y[chunk].mean())
+        total += (len(chunk) / len(y)) * abs(frequency - confidence)
+    return float(total)
+
+
 def classification_metrics(y_true, p_bad, threshold: float, cost: CostConfig) -> dict:
     """All reported metrics for one set of calibrated probabilities."""
     y, p = _arrays(y_true, p_bad)
@@ -80,6 +102,7 @@ def classification_metrics(y_true, p_bad, threshold: float, cost: CostConfig) ->
         "pr_auc": float(average_precision_score(y, p)) if len(np.unique(y)) > 1 else float("nan"),
         "ks": ks_statistic(y, p),
         "brier": float(brier_score_loss(y, p)),
+        "ece": expected_calibration_error(y, p),
         "threshold": float(threshold),
         "accuracy_at_threshold": float(accuracy_score(y, rejected.astype(int))),
         "approval_rate": float((~rejected).mean()),
@@ -110,6 +133,7 @@ def metrics_with_row_thresholds(y_true, p_bad, thresholds, cost: CostConfig) -> 
         "pr_auc": float(average_precision_score(y, p)) if len(np.unique(y)) > 1 else float("nan"),
         "ks": ks_statistic(y, p),
         "brier": float(brier_score_loss(y, p)),
+        "ece": expected_calibration_error(y, p),
         "threshold": float(np.mean(thr)),
         "accuracy_at_threshold": float(accuracy_score(y, rejected.astype(int))),
         "approval_rate": float((~rejected).mean()),

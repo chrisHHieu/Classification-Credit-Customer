@@ -85,6 +85,35 @@ def test_batch_predict(client: TestClient, project) -> None:
     assert body["model_version"] == project.summary["version"]
 
 
+def test_predict_returns_conformal_set_and_top_reasons(client: TestClient, project) -> None:
+    response = client.post("/predict", json=applicant_payload(project.processed, 2))
+    assert response.status_code == 200
+    body = response.json()
+    assert body["conformal_set"] in {"approve", "review", "reject"}
+    assert body["top_reasons"] == body["reason_codes"]
+    assert len(body["top_reasons"]) == 3
+
+
+def test_model_info_alias_and_conformal_block(client: TestClient) -> None:
+    response = client.get("/model-info")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["conformal"]["alpha"] == 0.1
+    assert 0.0 <= body["conformal"]["quantile"] <= 1.0
+    assert "ece" in body["metrics"]["holdout"]
+
+
+def test_explain_endpoint_returns_five_reasons(client: TestClient, project) -> None:
+    response = client.post("/explain", json=applicant_payload(project.processed, 3))
+    assert response.status_code == 200
+    body = response.json()
+    assert body["top_k"] == 5
+    assert len(body["reasons"]) == 5
+    assert body["method"]
+    magnitudes = [abs(reason["contribution_log_odds"]) for reason in body["reasons"]]
+    assert magnitudes == sorted(magnitudes, reverse=True)
+
+
 def test_unknown_category_code_is_rejected(client: TestClient, project) -> None:
     payload = applicant_payload(project.processed, 0)
     payload["purpose"] = "A999"
@@ -113,6 +142,8 @@ def test_empty_registry_reports_degraded_health(tmp_path: Path) -> None:
         assert health.status_code == 200
         assert health.json()["model_loaded"] is False
         assert test_client.get("/model/info").status_code == 503
+        assert test_client.get("/model-info").status_code == 503
         payload = applicant_payload(make_raw_frame(rows=4), 0)
         assert test_client.post("/predict", json=payload).status_code == 503
+        assert test_client.post("/explain", json=payload).status_code == 503
 

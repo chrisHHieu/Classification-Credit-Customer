@@ -4,7 +4,7 @@ Credit default scoring on the Statlog German Credit data, with a 5:1 cost-aware 
 
 ## What this is
 
-A complete credit-risk pipeline for a 1000-row lending dataset: download with a pinned checksum, a data contract that fails loudly, a frozen stratified split, logistic regression and LightGBM compared under the same protocol, isotonic calibration fitted only on inner folds, and a decision threshold chosen to minimise expected cost instead of maximising accuracy. Artifacts are versioned under `models/<model>/<version>/`, the serving layer loads `latest`, and `/predict` returns a calibrated default probability, an approve or reject decision, its expected cost and the top three feature contributions. Monitoring is a population stability index report against the training distributions. The whole thing runs offline in tests and in about 20 seconds on this dataset.
+A complete credit-risk pipeline for a 1000-row lending dataset: download with a pinned checksum, a data contract that fails loudly, a frozen stratified split, logistic regression, LightGBM, XGBoost and CatBoost compared under the same protocol, isotonic calibration fitted only on inner folds, and a decision threshold chosen to minimise expected cost instead of maximising accuracy. Artifacts are versioned under `models/<model>/<version>/`, the serving layer loads `latest`, and `/predict` returns a calibrated default probability, an approve or reject decision, its expected cost and the top three feature contributions. Monitoring is a population stability index report against the training distributions. The whole thing runs offline in tests; a full four-candidate train takes about 20 minutes on one CPU because CatBoost fits 30 boosters per validation pass.
 
 ## Why it was rebuilt
 
@@ -12,16 +12,23 @@ The original coursework notebook (kept unmodified in `legacy/`) reached 0.911 te
 
 ## Results
 
-Headline numbers use stratified 5-fold cross-validation on the 800-row development partition. The held-out 20 percent (200 rows) is scored once by the registered artifact and never used for any choice. Values are measured by `python -m credit_risk evaluate` and stored in `reports/metrics.json`; fold spread is the standard deviation across the five folds.
+Numbers below come from the run of 2026-10-31 with `configs/tuned.yaml`, written by
+`python -m credit_risk train --config configs/tuned.yaml --track` and
+`python -m credit_risk evaluate --config configs/tuned.yaml`. The search ran on the
+development folds only, so the held-out 200 applications are still scored once, by
+the registered artifact, and never used for a choice. Fold spread is the standard
+deviation across the five folds.
 
-| Model | Evaluation | ROC-AUC | PR-AUC | KS | Brier | Accuracy at threshold | Cost per 1000 | Cost at 0.5 per 1000 |
-|---|---|---|---|---|---|---|---|---|
-| Logistic regression (baseline) | 5-fold CV mean | 0.764 | 0.559 | 0.429 | 0.172 | 0.568 | 537.5 | 1123.8 |
-| LightGBM | 5-fold CV mean | 0.786 | 0.582 | 0.468 | 0.166 | 0.591 | 553.8 | 1003.8 |
-| Logistic regression (baseline) | Held-out 20 percent | 0.801 | 0.615 | 0.536 | 0.162 | 0.645 | 515.0 | 840.0 |
-| LightGBM | Held-out 20 percent | 0.768 | 0.625 | 0.440 | 0.169 | 0.520 | 640.0 | 725.0 |
-
-Fold spread for the CV rows: LightGBM ROC-AUC 0.786 +/- 0.046 and cost 553.8 +/- 100.4; logistic ROC-AUC 0.764 +/- 0.061 and cost 537.5 +/- 58.8. The chosen thresholds are 0.200 for LightGBM and 0.190 for the baseline, against an analytic break-even of 1/6 = 0.167 for a 5:1 cost ratio.
+| Model | Evaluation | ROC-AUC | PR-AUC | KS | Brier | ECE | Accuracy at threshold | Cost per 1000 | Cost at 0.5 per 1000 |
+|---|---|---|---|---|---|---|---|---|---|
+| Logistic regression (deployed) | 5-fold CV mean | 0.7711 | 0.5657 | 0.4423 | 0.1695 | 0.0806 | 0.619 | 541.2 | n/a |
+| LightGBM | 5-fold CV mean | 0.7809 | 0.5762 | 0.4625 | 0.1672 | 0.0811 | 0.625 | 510.0 | n/a |
+| XGBoost | 5-fold CV mean | 0.7854 | 0.5748 | 0.4583 | 0.1682 | 0.0706 | 0.596 | 553.8 | n/a |
+| CatBoost | 5-fold CV mean | 0.7836 | 0.5677 | 0.4786 | 0.1689 | 0.0916 | 0.611 | 543.8 | n/a |
+| Logistic regression (deployed) | Held-out 20 percent | 0.8002 | 0.6090 | 0.5190 | 0.1613 | 0.0700 | 0.605 | 555.0 | 925.0 |
+| LightGBM | Held-out 20 percent | 0.7810 | 0.6305 | 0.4500 | 0.1637 | 0.0461 | 0.565 | 595.0 | 870.0 |
+| XGBoost | Held-out 20 percent | 0.7970 | 0.6331 | 0.4571 | 0.1600 | 0.0611 | 0.545 | 595.0 | 750.0 |
+| CatBoost | Held-out 20 percent | 0.8047 | 0.6690 | 0.4952 | 0.1549 | 0.0695 | 0.630 | 570.0 | 620.0 |
 
 The same 200 held-out applications scored under the main policies:
 
@@ -29,31 +36,43 @@ The same 200 held-out applications scored under the main policies:
 |---|---|---|---|
 | Always approve | none | 1500.0 | 1.000 |
 | Always reject | none | 700.0 | 0.000 |
-| LightGBM, default threshold | 0.500 | 725.0 | 0.725 |
-| LightGBM, cost-optimal threshold | 0.200 | 640.0 | 0.300 |
-| Logistic regression, default threshold | 0.500 | 840.0 | 0.790 |
-| Logistic regression, cost-optimal threshold | 0.190 | 515.0 | 0.425 |
-| Logistic regression, oracle threshold on holdout labels (not deployable) | 0.335 | 485.0 | 0.575 |
+| CatBoost, default threshold | 0.500 | 620.0 | 0.680 |
+| CatBoost, cost-optimal threshold | 0.259 | 570.0 | 0.430 |
+| Logistic regression, default threshold | 0.500 | 925.0 | 0.825 |
+| Logistic regression, cost-optimal threshold | 0.189 | 555.0 | 0.385 |
+| Oracle threshold on holdout labels (not deployable) | 0.242 | 495.0 | 0.505 |
 
-The deployed policy is the logistic regression at 0.190: 515.0 per 1000, which is 125.0 below the LightGBM policy and 185.0 below rejecting everyone.
-
-Confusion matrices at each candidate's own threshold, on the 200 held-out applications, deployed model first:
-
-| | logistic: approve | logistic: reject | LightGBM: approve | LightGBM: reject |
-|---|---|---|---|---|
-| actual: good | 77 | 63 | 52 | 88 |
-| actual: bad | 8 | 52 | 8 | 52 |
-
-Both candidates approve the same 8 of the 60 bad applicants. The difference is on good applicants: LightGBM rejects 25 more of them, and 25 extra rejections per 200 applications is the 125.0 per 1000 gap.
+The deployed policy is the logistic regression at 0.1892: 555.0 per 1000, which is
+15.0 below CatBoost and 370.0 below rejecting everyone.
 
 What these numbers say:
 
-- **LightGBM does not beat the logistic regression on this dataset, which is why the logistic model is deployed.** Cross-validation puts LightGBM slightly ahead on ranking (ROC-AUC 0.786 versus 0.764, PR-AUC 0.582 versus 0.559) and slightly behind on cost (553.8 versus 537.5). On the 200-row holdout the logistic model wins on both AUC (0.801 versus 0.768) and cost (515.0 versus 640.0). All of these gaps are inside one fold standard deviation. With 1000 rows the two models are within noise of each other, so the choice is made on the one protocol in the brief that maps to money: held-out expected cost.
-- **The threshold, not the model, produces most of the value.** Moving from 0.5 to the cost-optimal threshold cuts expected cost from 725.0 to 640.0 per 1000 for LightGBM, and from 840.0 to 515.0 for the baseline. Accuracy on the same held-out rows falls at the same time, from 0.775 at 0.5 to 0.520 at 0.200 for LightGBM, and from 0.780 to 0.645 for the deployed model, because that policy rejects 58 percent of applicants (LightGBM's rejects 70 percent): accuracy is the wrong objective when a bad approval costs five times a good rejection.
-- **Isotonic calibration did not improve the Brier score on the holdout, for either candidate.** For the deployed logistic regression it is 0.1543 uncalibrated and 0.1623 calibrated; for LightGBM it is 0.1673 and 0.1685. Both raw models were already close to calibrated at this sample size, and fitting a monotone map on 800 inner-fold rows adds variance. The calibrator is kept because the same protocol is applied to every candidate and because the cost threshold is defined on the calibrated scale, but the honest statement is that it is not an accuracy gain here.
-- **Both models beat both trivial policies** at their thresholds. Rejecting everyone costs 700 per 1000; approving everyone costs 1500.
+- **The four candidates are inside noise of each other, and CatBoost has the best
+  ranking.** CatBoost leads the held-out ROC-AUC (0.8047), PR-AUC (0.6690) and
+  Brier (0.1549); the logistic regression leads on expected cost (555.0 against
+  570.0) because its probabilities sit on the right side of the 5:1 break-even more
+  often, not because it ranks better. The 15.0 per 1000 gap is 3.5 applications'
+  worth of cost on a 200-row holdout, so it is not an established difference.
+- **The threshold, not the model, produces most of the value.** Moving from 0.5 to
+  the cost-optimal threshold cuts expected cost from 925.0 to 555.0 per 1000 for the
+  deployed model, and from 620.0 to 570.0 for CatBoost. Accuracy on those same rows
+  falls at the same time, because the policy rejects 61.5 percent of applicants:
+  accuracy is the wrong objective when a bad loan costs five times a good one.
+- **Calibration and conformal coverage differ by family.** At a nominal 90 percent,
+  the split-conformal band covers 0.915 of holdout rows for logistic and CatBoost,
+  0.910 for LightGBM and XGBoost. ECE on the holdout is 0.0700 for logistic, 0.0461
+  for LightGBM, 0.0611 for XGBoost and 0.0695 for CatBoost; the boosted models are
+  better calibrated out of the box than the linear one, which is why isotonic
+  calibration was chosen per candidate instead of assumed.
+- **Both trivial policies lose** at every tuned threshold. Approving everyone costs
+  1500 per 1000; rejecting everyone costs 700; the worst candidate policy here costs
+  595.
 
-The deployed artifact is the logistic regression at threshold 0.1905, because it has the lower held-out expected cost of the two candidates (515.0 against 640.0 per 1000) and the better held-out ROC-AUC. LightGBM remains registered as the challenger: it ranks slightly better in cross-validation (0.786 against 0.764) and `pred_contrib=True` gives exact tree SHAP contributions, but it costs 125.0 more per 1000 on the held-out rows. Both candidates go through the same threshold rule, a single cost-minimising cut on calibrated probabilities, so choosing between them does not change the decision logic; `train.deployed_model` in `configs/base.yaml` only decides which artifact `models/latest` points at, and the API serves whichever one it finds there.
+Champion selection is by held-out expected cost, which is why the logistic
+regression is deployed and CatBoost, despite the best AUC, is registered as a
+challenger with the `champion` alias on the logistic version. That rule is written
+down in `reports/train_summary.json` next to the numbers it produced, so a reader
+can disagree with the rule without having to guess it.
 
 ## Quickstart
 
@@ -63,6 +82,7 @@ python -m credit_risk fetch
 python -m credit_risk features
 python -m credit_risk train
 python -m credit_risk evaluate
+dvc repro validate features   # data stages only; training is locked by its MLflow run
 ```
 
 Then serve the registered artifact:
@@ -114,6 +134,27 @@ flowchart LR
 
 The split lives in the processed file as `fold` and `is_heldout` columns, so `train`, `evaluate` and `drift` all see the same rows instead of each recomputing a split. Artifacts are `models/<model_type>/<version>/{model.joblib,metadata.json,reference.json}`, and `models/latest` is a text pointer to the deployed one.
 
+### What is modern in this repository
+
+The first rebuild had the right protocol and home-made tools. The current tree
+replaces them with the libraries a credit-risk team actually runs:
+
+| Concern | Library or file | Notes |
+| --- | --- | --- |
+| Tracking and registry | MLflow 3, SQLite store (`sqlite:///mlflow.db`) | one run per candidate, `credit_risk_<model>` registered, `champion` alias |
+| Hyperparameter search | Optuna 5, TPE plus MedianPruner | `reports/optuna.db`, writes `configs/tuned.yaml`; the search scores expected cost, not accuracy |
+| Data contract | Pandera 0.35 | column, dtype and range checks before any model sees the frame |
+| Calibration | isotonic and Platt chosen per candidate by inner-fold Brier | `models/calibration.py`, Brier and ECE in the metadata |
+| Uncertainty | split conformal on inner-fold scores | `models/conformal.py`, coverage reported on the holdout |
+| Attribution | SHAP tree values plus exact linear contributions | `models/explain.py`, grouped back to the original attribute |
+| Candidates | logistic, LightGBM, XGBoost, CatBoost | native categorical handling for the two boosted libraries |
+| Drift report | Evidently 0.7 next to the hand-written PSI | `monitor/evidently_report.py` |
+| Data versioning | DVC 3 | `dvc.yaml` and a committed `dvc.lock`: the payload is tracked as a pointer (`data/raw/german.data.dvc`), `dvc repro validate features` rebuilds the data stages |
+
+CI runs the core suite on every push, a `modern` job that installs the tracking,
+tuning and report extras but not torch, and a `deep` job kept for
+`workflow_dispatch`.
+
 ## Model card
 
 Summary: a logistic regression on 21 features (20 raw Statlog attributes plus credit amount per month of term), isotonic calibrated, with a cost-optimal threshold of 0.1905 and top-three coefficient-based contributions per prediction. LightGBM is registered alongside it as the challenger. Intended use is demonstration and portfolio review on this dataset, not real lending decisions. Full details, including fairness caveats and the cost assumptions, are in [`docs/model_card.md`](docs/model_card.md); the attribute and code dictionary is in [`docs/data_dictionary.md`](docs/data_dictionary.md).
@@ -135,7 +176,7 @@ On the run recorded here the whole processed file scores PSI 0.0041 at worst (`p
 - **No fairness audit.** `personal_status_sex`, `age_years` and `foreign_worker` are inputs, and the data comes from 1970s Germany. The pipeline reports no subgroup metrics and should not be used for decisions about people without one.
 - **Calibration is not a free win here.** As reported above, the Brier score did not improve on the holdout for either candidate: 0.1543 to 0.1623 for the deployed logistic regression, 0.1673 to 0.1685 for LightGBM. The calibrator is fitted on inner folds of an 800-row training set, which is small for isotonic regression.
 - **One threshold for everyone.** The cost-optimal threshold is a single scalar; segment-specific thresholds and capacity constraints (for example a fixed approval budget) are not modelled.
-- **No hyperparameter search.** Both models use fixed, modest settings; tuning on this holdout would have invalidated it, and nested tuning was out of scope.
+- **The search is small.** Optuna ran 10 trials per model on the development folds, not on the holdout, and CatBoost kept its configured parameters because the search stalled there. A 1000-row dataset does not support a large search: more trials mostly fit fold noise.
 - **Reason codes are not explanations in the regulatory sense.** They are additive contributions to a model score, and correlated features share credit arbitrarily.
 
 ## Project layout

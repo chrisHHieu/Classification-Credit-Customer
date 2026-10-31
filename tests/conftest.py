@@ -74,13 +74,32 @@ def build_test_config(root: Path, rows: int = FIXTURE_ROWS) -> Config:
         "num_leaves": 7,
         "min_child_samples": 5,
     }
+    xgboost = {
+        **cfg.train.xgboost,
+        "n_estimators": 40,
+        "max_depth": 2,
+        "learning_rate": 0.1,
+    }
+    catboost = {
+        **cfg.train.catboost,
+        "iterations": 40,
+        "depth": 3,
+        "learning_rate": 0.1,
+    }
     data = replace(cfg.data, expected_rows=rows, expected_bad_count=rows // 2)
     return replace(
         cfg,
         data=data,
         split=replace(cfg.split, n_splits=3),
         calibration=replace(cfg.calibration, inner_splits=3),
-        train=replace(cfg.train, lightgbm=lightgbm, permutation_repeats=3),
+        train=replace(
+            cfg.train,
+            lightgbm=lightgbm,
+            xgboost=xgboost,
+            catboost=catboost,
+            permutation_repeats=3,
+            search=replace(cfg.train.search, trials=2),
+        ),
     )
 
 

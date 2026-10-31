@@ -1,17 +1,19 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 
 import numpy as np
 import pytest
+from tests.conftest import build_test_config, make_raw_frame
 
 from credit_risk.data.schema import FEATURE_COLUMNS, feature_name_parts
-from credit_risk.features.build import feature_frame
-from credit_risk.models import registry
+from credit_risk.features.build import build_dataset, feature_frame, write_processed
+from credit_risk.models import candidates, registry
 from credit_risk.models.bundle import CalibratedModel
 from credit_risk.models.evaluate import confusion_matrix_array, run_evaluation
 from credit_risk.models.metrics import expected_cost_per_1000, select_threshold
-from credit_risk.models.train import fit_calibrated, make_pipeline
+from credit_risk.models.train import fit_calibrated, make_pipeline, run_training
 from credit_risk.monitor.drift import run_drift
 
 
@@ -107,8 +109,9 @@ def test_evaluate_writes_metrics_and_figures(project) -> None:
     for relative in on_disk["figures"]:
         path = project.cfg.root / relative
         assert path.exists() and path.stat().st_size > 1000
-    for key in ("roc_auc", "pr_auc", "ks", "brier", "accuracy_at_threshold"):
+    for key in ("roc_auc", "pr_auc", "ks", "brier", "ece", "accuracy_at_threshold"):
         assert key in on_disk["holdout"]["logistic"]
+    assert on_disk["holdout"]["logistic"]["conformal"]["target_coverage"] == 0.9
     assert len(on_disk["cost_table"]) >= 6
 
 
@@ -141,3 +144,63 @@ def test_confusion_matrix_array_orientation() -> None:
     matrix = confusion_matrix_array(metrics)
     assert matrix.tolist() == [[77, 63], [8, 52]]
     assert matrix.sum() == 200
+
+
+def test_metadata_records_calibration_and_conformal(project) -> None:
+    metadata = registry.load_metadata(project.cfg, "logistic")
+    assert metadata["calibration"] == "isotonic"
+    assert metadata["calibration_selection"][0]["method"] == "isotonic"
+    assert metadata["conformal"]["alpha"] == 0.1
+    assert metadata["conformal"]["n_calibration"] > 0
+    entry = project.summary["models"]["logistic"]
+    assert entry["holdout"]["conformal"]["empirical_coverage"] <= 1.0
+    assert entry["holdout"]["conformal"]["review_rate"] >= 0.0
+    assert project.summary["champion"]["cost_per_1000"] == min(
+        model["holdout"]["expected_cost_per_1000"] for model in project.summary["models"].values()
+    )
+
+
+@pytest.mark.slow
+def test_training_supports_every_configured_candidate(tmp_path) -> None:
+    cfg = build_test_config(tmp_path)
+    raw = make_raw_frame()
+    write_processed(build_dataset(raw, cfg), cfg)
+    four = replace(
+        cfg,
+        train=replace(
+            cfg.train,
+            candidates=["logistic", "lightgbm", "xgboost", "catboost"],
+            deployed_model="logistic",
+        ),
+        calibration=replace(cfg.calibration, method="auto"),
+    )
+    summary = run_training(four, version="allfour")
+    expected = [name for name in four.train.candidates if name not in summary["skipped"]]
+    assert set(summary["models"]) == set(expected)
+    for name in expected:
+        entry = summary["models"][name]
+        assert entry["calibration"] in {"isotonic", "platt"}
+        assert -1.0 < entry["holdout"]["roc_auc"] <= 1.0
+        assert 0.0 <= entry["conformal"]["empirical_coverage"] <= 1.0
+        assert (tmp_path / "models" / name / "allfour" / "model.joblib").exists()
+    for name, reason in summary["skipped"].items():
+        assert name not in summary["models"]
+        assert reason
+
+
+@pytest.mark.slow
+def test_unavailable_candidate_is_skipped_not_fatal(tmp_path, monkeypatch) -> None:
+    cfg = build_test_config(tmp_path)
+    write_processed(build_dataset(make_raw_frame(), cfg), cfg)
+    two = replace(
+        cfg,
+        train=replace(cfg.train, candidates=["logistic", "catboost"], deployed_model="catboost"),
+    )
+    original = candidates.is_available
+    monkeypatch.setattr(
+        candidates, "is_available", lambda name: False if name == "catboost" else original(name)
+    )
+    summary = run_training(two, version="skipped")
+    assert "catboost" in summary["skipped"]
+    assert set(summary["models"]) == {"logistic"}
+    assert summary["deployed_model"] == "logistic"

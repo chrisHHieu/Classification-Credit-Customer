@@ -1,0 +1,41 @@
+schema: '2.0'
+stages:
+  validate:
+    cmd: python -m credit_risk validate --config configs/full.yaml
+    deps:
+    - path: configs/full.yaml
+      hash: md5
+      md5: 7e9ebf7a11b812116b9b131065c9952c
+      size: 2351
+    - path: data/raw/german.data
+      hash: md5
+      md5: 6b94c2e35480e671545e52a808a8a549
+      size: 79793
+    - path: src/credit_risk/data/contracts.py
+      hash: md5
+      md5: c3044556ef57d0964729a5c7a02be732
+      size: 5174
+    - path: src/credit_risk/data/validate.py
+      hash: md5
+      md5: 7a1c656a66cd4ce6eed63f294e98d7a2
+      size: 10136
+  features:
+    cmd: python -m credit_risk features --config configs/full.yaml
+    deps:
+    - path: configs/full.yaml
+      hash: md5
+      md5: 7e9ebf7a11b812116b9b131065c9952c
+      size: 2351
+    - path: data/raw/german.data
+      hash: md5
+      md5: 6b94c2e35480e671545e52a808a8a549
+      size: 79793
+    - path: src/credit_risk/features/build.py
+      hash: md5
+      md5: 2fe5dccf8ebdb7d32112a928218ac542
+      size: 4946
+    outs:
+    - path: data/processed/credit_features.csv
+      hash: md5
+      md5: 3e84ea1d84da082ec65fef9d30f056ae
+      size: 113258

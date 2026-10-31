@@ -1,13 +1,13 @@
 {
-  "generated_at": "2026-10-31T12:31:09+00:00",
+  "generated_at": "2026-10-31T15:25:17+00:00",
   "model": {
     "type": "logistic",
-    "version": "20261031T122611Z",
-    "threshold": 0.1904761904761904,
+    "version": "20261031T151314Z",
+    "threshold": 0.1891891891891892,
     "calibration": "isotonic",
-    "trained_at": "2026-10-31T12:26:12+00:00",
-    "git_commit": "aeb53cc522d85e2b5596d64768909d99e58a2bc5",
-    "config_hash": "19ccc521f0cef2e4da2e636e182df59432500456beddad76237c2816921b995c"
+    "trained_at": "2026-10-31T15:13:15+00:00",
+    "git_commit": "14e2c2ebe4d6d0fe7906d014f8c3c1617da5e511",
+    "config_hash": "965a2c3917b019e753c1dcaad80bc8ab9bec6e5bdd50d5fd32b2ca5c74d3b0d8"
   },
   "data": {
     "rows_total": 1000,
@@ -19,7 +19,9 @@
     "headline": "stratified 5-fold CV on the 80 percent development partition",
     "holdout": "single stratified 20 percent split, frozen before training",
     "calibration": "isotonic, fitted on inner 3-fold out-of-fold predictions",
+    "calibration_detail": "isotonic or Platt, chosen per model by inner-fold Brier",
     "threshold": "minimum expected cost on inner-fold predictions only, 5:1 ratio",
+    "conformal": "split-conformal label sets fitted on inner-fold predictions",
     "cost_matrix": {
       "approve_bad": 5,
       "reject_good": 1
@@ -29,39 +31,129 @@
     "logistic": {
       "n": 200,
       "bad_rate": 0.3,
-      "roc_auc": 0.8008928571428571,
-      "pr_auc": 0.6149428091735483,
-      "ks": 0.5357142857142858,
-      "brier": 0.1622560023030402,
-      "threshold": 0.1904761904761904,
-      "accuracy_at_threshold": 0.645,
-      "approval_rate": 0.425,
-      "expected_cost_per_1000": 515.0,
-      "cost_0_5_per_1000": 840.0,
+      "roc_auc": 0.8002380952380953,
+      "pr_auc": 0.6089820881672586,
+      "ks": 0.519047619047619,
+      "brier": 0.16125224391718873,
+      "ece": 0.06999446252142756,
+      "threshold": 0.1891891891891892,
+      "accuracy_at_threshold": 0.605,
+      "approval_rate": 0.385,
+      "expected_cost_per_1000": 555.0,
+      "cost_0_5_per_1000": 925.0,
       "confusion": {
-        "true_good_approved": 77,
-        "true_good_rejected": 63,
+        "true_good_approved": 69,
+        "true_good_rejected": 71,
         "bad_approved": 8,
         "bad_rejected": 52
+      },
+      "conformal": {
+        "alpha": 0.1,
+        "target_coverage": 0.9,
+        "empirical_coverage": 0.915,
+        "rows": 200,
+        "approve_rate": 0.57,
+        "review_rate": 0.35,
+        "reject_rate": 0.08,
+        "empty_set_rate": 0.0,
+        "quantile": 0.6428571428571428,
+        "model_version": "20261031T151314Z"
       }
     },
     "lightgbm": {
       "n": 200,
       "bad_rate": 0.3,
-      "roc_auc": 0.768154761904762,
-      "pr_auc": 0.6254359291802771,
-      "ks": 0.4404761904761905,
-      "brier": 0.1685111472756863,
-      "threshold": 0.2,
-      "accuracy_at_threshold": 0.52,
-      "approval_rate": 0.3,
-      "expected_cost_per_1000": 640.0,
-      "cost_0_5_per_1000": 725.0,
+      "roc_auc": 0.7810119047619047,
+      "pr_auc": 0.6305396208413717,
+      "ks": 0.44999999999999996,
+      "brier": 0.16371150272420554,
+      "ece": 0.04612369833229208,
+      "threshold": 0.1764705882352941,
+      "accuracy_at_threshold": 0.565,
+      "approval_rate": 0.345,
+      "expected_cost_per_1000": 595.0,
+      "cost_0_5_per_1000": 870.0,
       "confusion": {
-        "true_good_approved": 52,
-        "true_good_rejected": 88,
+        "true_good_approved": 61,
+        "true_good_rejected": 79,
         "bad_approved": 8,
         "bad_rejected": 52
+      },
+      "conformal": {
+        "alpha": 0.1,
+        "target_coverage": 0.9,
+        "empirical_coverage": 0.91,
+        "rows": 200,
+        "approve_rate": 0.58,
+        "review_rate": 0.385,
+        "reject_rate": 0.035,
+        "empty_set_rate": 0.0,
+        "quantile": 0.6666666666666666,
+        "model_version": "20261031T151314Z"
+      }
+    },
+    "xgboost": {
+      "n": 200,
+      "bad_rate": 0.3,
+      "roc_auc": 0.7969642857142857,
+      "pr_auc": 0.633090182429384,
+      "ks": 0.4571428571428571,
+      "brier": 0.16003884668291066,
+      "ece": 0.06105597005558286,
+      "threshold": 0.1851851851851851,
+      "accuracy_at_threshold": 0.545,
+      "approval_rate": 0.315,
+      "expected_cost_per_1000": 595.0,
+      "cost_0_5_per_1000": 750.0,
+      "confusion": {
+        "true_good_approved": 56,
+        "true_good_rejected": 84,
+        "bad_approved": 7,
+        "bad_rejected": 53
+      },
+      "conformal": {
+        "alpha": 0.1,
+        "target_coverage": 0.9,
+        "empirical_coverage": 0.91,
+        "rows": 200,
+        "approve_rate": 0.62,
+        "review_rate": 0.38,
+        "reject_rate": 0.0,
+        "empty_set_rate": 0.0,
+        "quantile": 0.6818181818181818,
+        "model_version": "20261031T151314Z"
+      }
+    },
+    "catboost": {
+      "n": 200,
+      "bad_rate": 0.3,
+      "roc_auc": 0.804702380952381,
+      "pr_auc": 0.6690391809107341,
+      "ks": 0.4952380952380952,
+      "brier": 0.1549151198109873,
+      "ece": 0.06946810417049525,
+      "threshold": 0.2592592592592592,
+      "accuracy_at_threshold": 0.63,
+      "approval_rate": 0.43,
+      "expected_cost_per_1000": 570.0,
+      "cost_0_5_per_1000": 620.0,
+      "confusion": {
+        "true_good_approved": 76,
+        "true_good_rejected": 64,
+        "bad_approved": 10,
+        "bad_rejected": 50
+      },
+      "conformal": {
+        "alpha": 0.1,
+        "target_coverage": 0.9,
+        "empirical_coverage": 0.915,
+        "rows": 200,
+        "approve_rate": 0.61,
+        "review_rate": 0.355,
+        "reject_rate": 0.035,
+        "empty_set_rate": 0.0,
+        "quantile": 0.6875,
+        "model_version": "20261031T151314Z"
       }
     }
   },
@@ -72,149 +164,157 @@
         {
           "n": 160,
           "bad_rate": 0.3,
-          "roc_auc": 0.810360863095238,
-          "pr_auc": 0.6363813463937068,
-          "ks": 0.4761904761904762,
-          "brier": 0.15759311483654662,
-          "threshold": 0.2,
-          "accuracy_at_threshold": 0.63125,
-          "approval_rate": 0.39375,
-          "expected_cost_per_1000": 493.75,
-          "cost_0_5_per_1000": 962.5,
+          "roc_auc": 0.8173363095238094,
+          "pr_auc": 0.6531934601668862,
+          "ks": 0.5,
+          "brier": 0.1516011131680006,
+          "ece": 0.06400977246866522,
+          "threshold": 0.247787610619469,
+          "accuracy_at_threshold": 0.6375,
+          "approval_rate": 0.425,
+          "expected_cost_per_1000": 537.5,
+          "cost_0_5_per_1000": 875.0,
           "confusion": {
-            "true_good_approved": 58,
-            "true_good_rejected": 54,
-            "bad_approved": 5,
-            "bad_rejected": 43
+            "true_good_approved": 61,
+            "true_good_rejected": 51,
+            "bad_approved": 7,
+            "bad_rejected": 41
           },
           "fold": 0
         },
         {
           "n": 160,
           "bad_rate": 0.3,
-          "roc_auc": 0.8282180059523809,
-          "pr_auc": 0.6426648013103077,
-          "ks": 0.5178571428571428,
-          "brier": 0.15294369757506093,
-          "threshold": 0.18,
-          "accuracy_at_threshold": 0.575,
-          "approval_rate": 0.3,
-          "expected_cost_per_1000": 475.0,
-          "cost_0_5_per_1000": 975.0,
+          "roc_auc": 0.8212425595238094,
+          "pr_auc": 0.6416534360014466,
+          "ks": 0.4970238095238095,
+          "brier": 0.1519036095621475,
+          "ece": 0.04192919144075358,
+          "threshold": 0.1914893617021276,
+          "accuracy_at_threshold": 0.64375,
+          "approval_rate": 0.39375,
+          "expected_cost_per_1000": 456.25,
+          "cost_0_5_per_1000": 893.75,
           "confusion": {
-            "true_good_approved": 46,
-            "true_good_rejected": 66,
-            "bad_approved": 2,
-            "bad_rejected": 46
+            "true_good_approved": 59,
+            "true_good_rejected": 53,
+            "bad_approved": 4,
+            "bad_rejected": 44
           },
           "fold": 1
         },
         {
           "n": 160,
           "bad_rate": 0.3,
-          "roc_auc": 0.7492559523809523,
-          "pr_auc": 0.5153155625095452,
-          "ks": 0.38392857142857145,
-          "brier": 0.17729159481258533,
-          "threshold": 0.217391304347826,
-          "accuracy_at_threshold": 0.4875,
-          "approval_rate": 0.2,
-          "expected_cost_per_1000": 537.5,
-          "cost_0_5_per_1000": 1118.75,
+          "roc_auc": 0.7787388392857143,
+          "pr_auc": 0.5412730948440667,
+          "ks": 0.4404761904761905,
+          "brier": 0.17292329910354337,
+          "ece": 0.09554515225872272,
+          "threshold": 0.2686567164179104,
+          "accuracy_at_threshold": 0.575,
+          "approval_rate": 0.3125,
+          "expected_cost_per_1000": 500.0,
+          "cost_0_5_per_1000": 1106.25,
           "confusion": {
-            "true_good_approved": 31,
-            "true_good_rejected": 81,
-            "bad_approved": 1,
-            "bad_rejected": 47
+            "true_good_approved": 47,
+            "true_good_rejected": 65,
+            "bad_approved": 3,
+            "bad_rejected": 45
           },
           "fold": 2
         },
         {
           "n": 160,
           "bad_rate": 0.3,
-          "roc_auc": 0.6724330357142857,
-          "pr_auc": 0.448706643086802,
-          "ks": 0.3095238095238095,
-          "brier": 0.1994088919168429,
-          "threshold": 0.1929824561403508,
-          "accuracy_at_threshold": 0.525,
-          "approval_rate": 0.3,
-          "expected_cost_per_1000": 625.0,
-          "cost_0_5_per_1000": 1306.25,
+          "roc_auc": 0.6687127976190477,
+          "pr_auc": 0.4365060905439825,
+          "ks": 0.3392857142857143,
+          "brier": 0.20143345319506908,
+          "ece": 0.12678624755462325,
+          "threshold": 0.28,
+          "accuracy_at_threshold": 0.6375,
+          "approval_rate": 0.4875,
+          "expected_cost_per_1000": 662.5,
+          "cost_0_5_per_1000": 1168.75,
           "confusion": {
-            "true_good_approved": 42,
-            "true_good_rejected": 70,
-            "bad_approved": 6,
-            "bad_rejected": 42
+            "true_good_approved": 66,
+            "true_good_rejected": 46,
+            "bad_approved": 12,
+            "bad_rejected": 36
           },
           "fold": 3
         },
         {
           "n": 160,
           "bad_rate": 0.3,
-          "roc_auc": 0.7617187500000001,
-          "pr_auc": 0.5519966542521288,
-          "ks": 0.45535714285714285,
-          "brier": 0.17499576584697388,
-          "threshold": 0.2222222222222222,
-          "accuracy_at_threshold": 0.61875,
-          "approval_rate": 0.40625,
-          "expected_cost_per_1000": 556.25,
-          "cost_0_5_per_1000": 1256.25,
+          "roc_auc": 0.7695312499999999,
+          "pr_auc": 0.5560838731797901,
+          "ks": 0.4345238095238095,
+          "brier": 0.16963400690965735,
+          "ece": 0.07455795630537612,
+          "threshold": 0.2197802197802197,
+          "accuracy_at_threshold": 0.6,
+          "approval_rate": 0.375,
+          "expected_cost_per_1000": 550.0,
+          "cost_0_5_per_1000": 662.5,
           "confusion": {
-            "true_good_approved": 58,
-            "true_good_rejected": 54,
-            "bad_approved": 7,
-            "bad_rejected": 41
+            "true_good_approved": 54,
+            "true_good_rejected": 58,
+            "bad_approved": 6,
+            "bad_rejected": 42
           },
           "fold": 4
         }
       ],
       "mean": {
-        "roc_auc": 0.7643973214285713,
-        "pr_auc": 0.5590130015104982,
-        "ks": 0.42857142857142855,
-        "brier": 0.17244661299760194,
-        "accuracy_at_threshold": 0.5675,
-        "expected_cost_per_1000": 537.5,
-        "cost_0_5_per_1000": 1123.75,
-        "approval_rate": 0.32
+        "roc_auc": 0.771112351190476,
+        "pr_auc": 0.5657419909472343,
+        "ks": 0.44226190476190474,
+        "brier": 0.16949909638768357,
+        "ece": 0.08056566400562817,
+        "accuracy_at_threshold": 0.61875,
+        "expected_cost_per_1000": 541.25,
+        "cost_0_5_per_1000": 941.25,
+        "approval_rate": 0.39875000000000005
       },
       "sd": {
-        "roc_auc": 0.060990967741346644,
-        "pr_auc": 0.08232507578572806,
-        "ks": 0.08234425793010072,
-        "brier": 0.018425028026811712,
-        "accuracy_at_threshold": 0.06114148550697799,
-        "expected_cost_per_1000": 58.796524131958684,
-        "cost_0_5_per_1000": 157.33374161317082,
-        "approval_rate": 0.08378264289218859
+        "roc_auc": 0.06163607686415139,
+        "pr_auc": 0.0877556707957541,
+        "ks": 0.06519148056550023,
+        "brier": 0.02038066160450463,
+        "ece": 0.03226334809263404,
+        "accuracy_at_threshold": 0.029973947020704512,
+        "expected_cost_per_1000": 77.0044641563072,
+        "cost_0_5_per_1000": 202.06937236998584,
+        "approval_rate": 0.06440836513994125
       },
       "pooled": {
         "n": 800,
         "bad_rate": 0.3,
-        "roc_auc": 0.7599181547619047,
-        "pr_auc": 0.5616933596749173,
-        "ks": 0.3988095238095238,
-        "brier": 0.17244661299760197,
-        "threshold": 0.2025191965420798,
-        "accuracy_at_threshold": 0.5675,
-        "approval_rate": 0.32,
-        "expected_cost_per_1000": 537.5,
-        "cost_0_5_per_1000": 1123.75,
+        "roc_auc": 0.7677455357142857,
+        "pr_auc": 0.579334302374517,
+        "ks": 0.4339285714285715,
+        "brier": 0.16949909638768354,
+        "ece": 0.03986896976414922,
+        "threshold": 0.2415427817039454,
+        "accuracy_at_threshold": 0.61875,
+        "approval_rate": 0.39875,
+        "expected_cost_per_1000": 541.25,
+        "cost_0_5_per_1000": 941.25,
         "confusion": {
-          "true_good_approved": 235,
-          "true_good_rejected": 325,
-          "bad_approved": 21,
-          "bad_rejected": 219
+          "true_good_approved": 287,
+          "true_good_rejected": 273,
+          "bad_approved": 32,
+          "bad_rejected": 208
         }
       },
       "thresholds": [
-        0.2,
-        0.18,
-        0.217391304347826,
-        0.1929824561403508,
-        0.2222222222222222
+        0.247787610619469,
+        0.1914893617021276,
+        0.2686567164179104,
+        0.28,
+        0.2197802197802197
       ]
     },
     "lightgbm": {
@@ -223,18 +323,19 @@
         {
           "n": 160,
           "bad_rate": 0.3,
-          "roc_auc": 0.8305431547619048,
-          "pr_auc": 0.6373172661406646,
-          "ks": 0.5565476190476191,
-          "brier": 0.15167347980065915,
-          "threshold": 0.2035928143712574,
-          "accuracy_at_threshold": 0.59375,
-          "approval_rate": 0.33125,
-          "expected_cost_per_1000": 481.25,
-          "cost_0_5_per_1000": 1093.75,
+          "roc_auc": 0.8297991071428571,
+          "pr_auc": 0.6690135065711179,
+          "ks": 0.5595238095238095,
+          "brier": 0.1480237152420941,
+          "ece": 0.057651261918374025,
+          "threshold": 0.2195121951219512,
+          "accuracy_at_threshold": 0.6375,
+          "approval_rate": 0.375,
+          "expected_cost_per_1000": 437.5,
+          "cost_0_5_per_1000": 962.5,
           "confusion": {
-            "true_good_approved": 50,
-            "true_good_rejected": 62,
+            "true_good_approved": 57,
+            "true_good_rejected": 55,
             "bad_approved": 3,
             "bad_rejected": 45
           },
@@ -243,78 +344,241 @@
         {
           "n": 160,
           "bad_rate": 0.3,
-          "roc_auc": 0.7624627976190477,
-          "pr_auc": 0.5184045817140152,
-          "ks": 0.44345238095238093,
-          "brier": 0.18055713492443606,
-          "threshold": 0.1923076923076923,
-          "accuracy_at_threshold": 0.625,
-          "approval_rate": 0.425,
-          "expected_cost_per_1000": 575.0,
-          "cost_0_5_per_1000": 1212.5,
+          "roc_auc": 0.7863653273809523,
+          "pr_auc": 0.5887577053212022,
+          "ks": 0.47916666666666663,
+          "brier": 0.1605775918501003,
+          "ece": 0.049321256218025966,
+          "threshold": 0.217391304347826,
+          "accuracy_at_threshold": 0.6625,
+          "approval_rate": 0.45,
+          "expected_cost_per_1000": 512.5,
+          "cost_0_5_per_1000": 725.0,
           "confusion": {
-            "true_good_approved": 60,
-            "true_good_rejected": 52,
-            "bad_approved": 8,
-            "bad_rejected": 40
+            "true_good_approved": 65,
+            "true_good_rejected": 47,
+            "bad_approved": 7,
+            "bad_rejected": 41
           },
           "fold": 1
         },
         {
           "n": 160,
           "bad_rate": 0.3,
-          "roc_auc": 0.7889694940476191,
-          "pr_auc": 0.561470415497173,
-          "ks": 0.4345238095238095,
-          "brier": 0.16626719824050457,
-          "threshold": 0.2017543859649122,
-          "accuracy_at_threshold": 0.55,
-          "approval_rate": 0.2625,
-          "expected_cost_per_1000": 475.0,
-          "cost_0_5_per_1000": 900.0,
+          "roc_auc": 0.7757626488095237,
+          "pr_auc": 0.5339963048418619,
+          "ks": 0.42857142857142855,
+          "brier": 0.1728119695905086,
+          "ece": 0.09635266738527766,
+          "threshold": 0.2222222222222222,
+          "accuracy_at_threshold": 0.6125,
+          "approval_rate": 0.3625,
+          "expected_cost_per_1000": 487.5,
+          "cost_0_5_per_1000": 887.5,
           "confusion": {
-            "true_good_approved": 41,
-            "true_good_rejected": 71,
-            "bad_approved": 1,
-            "bad_rejected": 47
+            "true_good_approved": 54,
+            "true_good_rejected": 58,
+            "bad_approved": 4,
+            "bad_rejected": 44
           },
           "fold": 2
         },
         {
           "n": 160,
           "bad_rate": 0.3,
-          "roc_auc": 0.7210751488095238,
-          "pr_auc": 0.5112207980965916,
-          "ks": 0.3511904761904762,
-          "brier": 0.18608897275204933,
-          "threshold": 0.2549019607843137,
-          "accuracy_at_threshold": 0.60625,
-          "approval_rate": 0.46875,
-          "expected_cost_per_1000": 718.75,
-          "cost_0_5_per_1000": 993.75,
+          "roc_auc": 0.6938244047619048,
+          "pr_auc": 0.4628566867635929,
+          "ks": 0.300595238095238,
+          "brier": 0.20060207335665386,
+          "ece": 0.13358118657220905,
+          "threshold": 0.1948051948051948,
+          "accuracy_at_threshold": 0.5625,
+          "approval_rate": 0.3625,
+          "expected_cost_per_1000": 637.5,
+          "cost_0_5_per_1000": 975.0,
           "confusion": {
-            "true_good_approved": 62,
-            "true_good_rejected": 50,
-            "bad_approved": 13,
-            "bad_rejected": 35
+            "true_good_approved": 50,
+            "true_good_rejected": 62,
+            "bad_approved": 8,
+            "bad_rejected": 40
           },
           "fold": 3
         },
         {
           "n": 160,
           "bad_rate": 0.3,
-          "roc_auc": 0.8264508928571428,
-          "pr_auc": 0.6820117271352981,
-          "ks": 0.5565476190476191,
-          "brier": 0.1472971793549275,
-          "threshold": 0.2914798206278027,
-          "accuracy_at_threshold": 0.58125,
-          "approval_rate": 0.33125,
-          "expected_cost_per_1000": 518.75,
-          "cost_0_5_per_1000": 818.75,
+          "roc_auc": 0.8187313988095238,
+          "pr_auc": 0.626313714874929,
+          "ks": 0.5446428571428572,
+          "brier": 0.15386109186687053,
+          "ece": 0.068422319056518,
+          "threshold": 0.2297297297297297,
+          "accuracy_at_threshold": 0.65,
+          "approval_rate": 0.4125,
+          "expected_cost_per_1000": 475.0,
+          "cost_0_5_per_1000": 806.25,
           "confusion": {
-            "true_good_approved": 49,
-            "true_good_rejected": 63,
+            "true_good_approved": 61,
+            "true_good_rejected": 51,
+            "bad_approved": 5,
+            "bad_rejected": 43
+          },
+          "fold": 4
+        }
+      ],
+      "mean": {
+        "roc_auc": 0.7808965773809523,
+        "pr_auc": 0.5761875836745408,
+        "ks": 0.4625,
+        "brier": 0.16717528838124548,
+        "ece": 0.08106573823008094,
+        "accuracy_at_threshold": 0.6249999999999999,
+        "expected_cost_per_1000": 510.0,
+        "cost_0_5_per_1000": 871.25,
+        "approval_rate": 0.39249999999999996
+      },
+      "sd": {
+        "roc_auc": 0.05352746683569596,
+        "pr_auc": 0.08048491342032438,
+        "ks": 0.10464600596595103,
+        "brier": 0.02083688023008598,
+        "ece": 0.03430513228780176,
+        "accuracy_at_threshold": 0.039528470752104736,
+        "expected_cost_per_1000": 76.23975340988453,
+        "cost_0_5_per_1000": 106.02918230374127,
+        "approval_rate": 0.03811987670494227
+      },
+      "pooled": {
+        "n": 800,
+        "bad_rate": 0.3,
+        "roc_auc": 0.7807886904761905,
+        "pr_auc": 0.5790922198588653,
+        "ks": 0.44047619047619047,
+        "brier": 0.16717528838124543,
+        "ece": 0.03044124467675001,
+        "threshold": 0.2167321292453848,
+        "accuracy_at_threshold": 0.625,
+        "approval_rate": 0.3925,
+        "expected_cost_per_1000": 510.0,
+        "cost_0_5_per_1000": 871.25,
+        "confusion": {
+          "true_good_approved": 287,
+          "true_good_rejected": 273,
+          "bad_approved": 27,
+          "bad_rejected": 213
+        }
+      },
+      "thresholds": [
+        0.2195121951219512,
+        0.217391304347826,
+        0.2222222222222222,
+        0.1948051948051948,
+        0.2297297297297297
+      ]
+    },
+    "xgboost": {
+      "n_splits": 5,
+      "folds": [
+        {
+          "n": 160,
+          "bad_rate": 0.3,
+          "roc_auc": 0.818173363095238,
+          "pr_auc": 0.6607979781140982,
+          "ks": 0.5059523809523809,
+          "brier": 0.1535993806987481,
+          "ece": 0.1045517681767069,
+          "threshold": 0.3,
+          "accuracy_at_threshold": 0.6625,
+          "approval_rate": 0.4375,
+          "expected_cost_per_1000": 487.5,
+          "cost_0_5_per_1000": 762.5,
+          "confusion": {
+            "true_good_approved": 64,
+            "true_good_rejected": 48,
+            "bad_approved": 6,
+            "bad_rejected": 42
+          },
+          "fold": 0
+        },
+        {
+          "n": 160,
+          "bad_rate": 0.3,
+          "roc_auc": 0.7938988095238095,
+          "pr_auc": 0.5624145420281453,
+          "ks": 0.4970238095238095,
+          "brier": 0.16455325036561258,
+          "ece": 0.07271459666436769,
+          "threshold": 0.2941176470588235,
+          "accuracy_at_threshold": 0.65,
+          "approval_rate": 0.4375,
+          "expected_cost_per_1000": 525.0,
+          "cost_0_5_per_1000": 931.25,
+          "confusion": {
+            "true_good_approved": 63,
+            "true_good_rejected": 49,
+            "bad_approved": 7,
+            "bad_rejected": 41
+          },
+          "fold": 1
+        },
+        {
+          "n": 160,
+          "bad_rate": 0.3,
+          "roc_auc": 0.7843191964285714,
+          "pr_auc": 0.5360160962542022,
+          "ks": 0.4345238095238095,
+          "brier": 0.17627714035399802,
+          "ece": 0.043610735153503465,
+          "threshold": 0.2051282051282051,
+          "accuracy_at_threshold": 0.5375,
+          "approval_rate": 0.275,
+          "expected_cost_per_1000": 537.5,
+          "cost_0_5_per_1000": 956.25,
+          "confusion": {
+            "true_good_approved": 41,
+            "true_good_rejected": 71,
+            "bad_approved": 3,
+            "bad_rejected": 45
+          },
+          "fold": 2
+        },
+        {
+          "n": 160,
+          "bad_rate": 0.3,
+          "roc_auc": 0.7174479166666666,
+          "pr_auc": 0.4914240488508515,
+          "ks": 0.31547619047619047,
+          "brier": 0.1870499417011223,
+          "ece": 0.05412123041474084,
+          "threshold": 0.1904761904761904,
+          "accuracy_at_threshold": 0.5875,
+          "approval_rate": 0.4125,
+          "expected_cost_per_1000": 662.5,
+          "cost_0_5_per_1000": 1012.5,
+          "confusion": {
+            "true_good_approved": 56,
+            "true_good_rejected": 56,
+            "bad_approved": 10,
+            "bad_rejected": 38
+          },
+          "fold": 3
+        },
+        {
+          "n": 160,
+          "bad_rate": 0.3,
+          "roc_auc": 0.8133370535714285,
+          "pr_auc": 0.6232986573943221,
+          "ks": 0.5386904761904763,
+          "brier": 0.1594179538512112,
+          "ece": 0.07783949001308024,
+          "threshold": 0.2159090909090909,
+          "accuracy_at_threshold": 0.54375,
+          "approval_rate": 0.29375,
+          "expected_cost_per_1000": 556.25,
+          "cost_0_5_per_1000": 793.75,
+          "confusion": {
+            "true_good_approved": 43,
+            "true_good_rejected": 69,
             "bad_approved": 4,
             "bad_rejected": 44
           },
@@ -322,77 +586,263 @@
         }
       ],
       "mean": {
-        "roc_auc": 0.7859002976190477,
-        "pr_auc": 0.5820849577167484,
-        "ks": 0.468452380952381,
-        "brier": 0.1663767930145153,
-        "accuracy_at_threshold": 0.5912499999999999,
+        "roc_auc": 0.7854352678571427,
+        "pr_auc": 0.5747902645283239,
+        "ks": 0.45833333333333337,
+        "brier": 0.16817953339413844,
+        "ece": 0.07056756408447984,
+        "accuracy_at_threshold": 0.5962500000000001,
         "expected_cost_per_1000": 553.75,
-        "cost_0_5_per_1000": 1003.75,
-        "approval_rate": 0.36375
+        "cost_0_5_per_1000": 891.25,
+        "approval_rate": 0.37124999999999997
       },
       "sd": {
-        "roc_auc": 0.045821315343367856,
-        "pr_auc": 0.07506304999416459,
-        "ks": 0.08810227610239006,
-        "brier": 0.017101777791837015,
-        "accuracy_at_threshold": 0.028159700815172002,
-        "expected_cost_per_1000": 100.44821426984156,
-        "cost_0_5_per_1000": 155.53586804978457,
-        "approval_rate": 0.08237205988683298
+        "roc_auc": 0.040451976468210825,
+        "pr_auc": 0.06774384016984274,
+        "ks": 0.08831315550570115,
+        "brier": 0.013455106887902876,
+        "ece": 0.0235030279995079,
+        "accuracy_at_threshold": 0.05822907349426059,
+        "expected_cost_per_1000": 65.78848683470383,
+        "cost_0_5_per_1000": 107.94602239082272,
+        "approval_rate": 0.08023403267940606
       },
       "pooled": {
         "n": 800,
         "bad_rate": 0.3,
-        "roc_auc": 0.7826339285714285,
-        "pr_auc": 0.5865002672396696,
-        "ks": 0.46130952380952384,
-        "brier": 0.1663767930145153,
-        "threshold": 0.22880733481119567,
-        "accuracy_at_threshold": 0.59125,
-        "approval_rate": 0.36375,
+        "roc_auc": 0.7834747023809524,
+        "pr_auc": 0.5795044109790131,
+        "ks": 0.43452380952380953,
+        "brier": 0.16817953339413844,
+        "ece": 0.03871880263805601,
+        "threshold": 0.24112622671446196,
+        "accuracy_at_threshold": 0.59625,
+        "approval_rate": 0.37125,
         "expected_cost_per_1000": 553.75,
-        "cost_0_5_per_1000": 1003.7499999999999,
+        "cost_0_5_per_1000": 891.25,
         "confusion": {
-          "true_good_approved": 262,
-          "true_good_rejected": 298,
-          "bad_approved": 29,
-          "bad_rejected": 211
+          "true_good_approved": 267,
+          "true_good_rejected": 293,
+          "bad_approved": 30,
+          "bad_rejected": 210
         }
       },
       "thresholds": [
-        0.2035928143712574,
+        0.3,
+        0.2941176470588235,
+        0.2051282051282051,
+        0.1904761904761904,
+        0.2159090909090909
+      ]
+    },
+    "catboost": {
+      "n_splits": 5,
+      "folds": [
+        {
+          "n": 160,
+          "bad_rate": 0.3,
+          "roc_auc": 0.8198474702380953,
+          "pr_auc": 0.6408675842139628,
+          "ks": 0.5357142857142857,
+          "brier": 0.1542136259048302,
+          "ece": 0.09090667365563415,
+          "threshold": 0.2233009708737864,
+          "accuracy_at_threshold": 0.56875,
+          "approval_rate": 0.30625,
+          "expected_cost_per_1000": 506.25,
+          "cost_0_5_per_1000": 918.75,
+          "confusion": {
+            "true_good_approved": 46,
+            "true_good_rejected": 66,
+            "bad_approved": 3,
+            "bad_rejected": 45
+          },
+          "fold": 0
+        },
+        {
+          "n": 160,
+          "bad_rate": 0.3,
+          "roc_auc": 0.7906436011904762,
+          "pr_auc": 0.542590449661894,
+          "ks": 0.4970238095238095,
+          "brier": 0.167843731548099,
+          "ece": 0.0822264116241498,
+          "threshold": 0.2666666666666666,
+          "accuracy_at_threshold": 0.68125,
+          "approval_rate": 0.43125,
+          "expected_cost_per_1000": 418.75,
+          "cost_0_5_per_1000": 743.75,
+          "confusion": {
+            "true_good_approved": 65,
+            "true_good_rejected": 47,
+            "bad_approved": 4,
+            "bad_rejected": 44
+          },
+          "fold": 1
+        },
+        {
+          "n": 160,
+          "bad_rate": 0.3,
+          "roc_auc": 0.7941778273809524,
+          "pr_auc": 0.5584037786697734,
+          "ks": 0.5208333333333334,
+          "brier": 0.16800232028492462,
+          "ece": 0.06746786290324823,
+          "threshold": 0.2954545454545454,
+          "accuracy_at_threshold": 0.5875,
+          "approval_rate": 0.3625,
+          "expected_cost_per_1000": 562.5,
+          "cost_0_5_per_1000": 668.75,
+          "confusion": {
+            "true_good_approved": 52,
+            "true_good_rejected": 60,
+            "bad_approved": 6,
+            "bad_rejected": 42
+          },
+          "fold": 2
+        },
+        {
+          "n": 160,
+          "bad_rate": 0.3,
+          "roc_auc": 0.7041480654761905,
+          "pr_auc": 0.509541081726651,
+          "ks": 0.31547619047619047,
+          "brier": 0.19431308898886712,
+          "ece": 0.09331917804572572,
+          "threshold": 0.1923076923076923,
+          "accuracy_at_threshold": 0.6125,
+          "approval_rate": 0.4875,
+          "expected_cost_per_1000": 737.5,
+          "cost_0_5_per_1000": 1268.75,
+          "confusion": {
+            "true_good_approved": 64,
+            "true_good_rejected": 48,
+            "bad_approved": 14,
+            "bad_rejected": 34
+          },
+          "fold": 3
+        },
+        {
+          "n": 160,
+          "bad_rate": 0.3,
+          "roc_auc": 0.8089657738095238,
+          "pr_auc": 0.5872438080883541,
+          "ks": 0.5238095238095237,
+          "brier": 0.16007158568564317,
+          "ece": 0.12385971482707046,
+          "threshold": 0.2352941176470588,
+          "accuracy_at_threshold": 0.60625,
+          "approval_rate": 0.35625,
+          "expected_cost_per_1000": 493.75,
+          "cost_0_5_per_1000": 881.25,
+          "confusion": {
+            "true_good_approved": 53,
+            "true_good_rejected": 59,
+            "bad_approved": 4,
+            "bad_rejected": 44
+          },
+          "fold": 4
+        }
+      ],
+      "mean": {
+        "roc_auc": 0.7835565476190476,
+        "pr_auc": 0.567729340472127,
+        "ks": 0.4785714285714285,
+        "brier": 0.16888887048247284,
+        "ece": 0.09155596821116567,
+        "accuracy_at_threshold": 0.6112500000000001,
+        "expected_cost_per_1000": 543.75,
+        "cost_0_5_per_1000": 896.25,
+        "approval_rate": 0.38875000000000004
+      },
+      "sd": {
+        "roc_auc": 0.045911340615576404,
+        "pr_auc": 0.049585331837938125,
+        "ks": 0.09224750271616904,
+        "brier": 0.015340929632097199,
+        "ece": 0.020702294445307048,
+        "accuracy_at_threshold": 0.04271087390817473,
+        "expected_cost_per_1000": 119.81430945425508,
+        "cost_0_5_per_1000": 231.57072353818822,
+        "approval_rate": 0.07090376400445889
+      },
+      "pooled": {
+        "n": 800,
+        "bad_rate": 0.3,
+        "roc_auc": 0.7790662202380952,
+        "pr_auc": 0.5686503134392042,
+        "ks": 0.4529761904761905,
+        "brier": 0.16888887048247284,
+        "ece": 0.032375406606550715,
+        "threshold": 0.2426047985899499,
+        "accuracy_at_threshold": 0.61125,
+        "approval_rate": 0.38875,
+        "expected_cost_per_1000": 543.75,
+        "cost_0_5_per_1000": 896.25,
+        "confusion": {
+          "true_good_approved": 280,
+          "true_good_rejected": 280,
+          "bad_approved": 31,
+          "bad_rejected": 209
+        }
+      },
+      "thresholds": [
+        0.2233009708737864,
+        0.2666666666666666,
+        0.2954545454545454,
         0.1923076923076923,
-        0.2017543859649122,
-        0.2549019607843137,
-        0.2914798206278027
+        0.2352941176470588
       ]
     }
   },
   "cost_table": [
     {
       "policy": "logistic at chosen threshold",
-      "threshold": 0.1904761904761904,
-      "expected_cost_per_1000": 515.0,
-      "approval_rate": 0.425
+      "threshold": 0.1891891891891892,
+      "expected_cost_per_1000": 555.0,
+      "approval_rate": 0.385
     },
     {
       "policy": "logistic at default 0.5",
       "threshold": 0.5,
-      "expected_cost_per_1000": 840.0,
-      "approval_rate": 0.79
+      "expected_cost_per_1000": 925.0,
+      "approval_rate": 0.825
     },
     {
       "policy": "lightgbm at chosen threshold",
-      "threshold": 0.2,
-      "expected_cost_per_1000": 640.0,
-      "approval_rate": 0.3
+      "threshold": 0.1764705882352941,
+      "expected_cost_per_1000": 595.0,
+      "approval_rate": 0.345
     },
     {
       "policy": "lightgbm at default 0.5",
       "threshold": 0.5,
-      "expected_cost_per_1000": 725.0,
-      "approval_rate": 0.725
+      "expected_cost_per_1000": 870.0,
+      "approval_rate": 0.79
+    },
+    {
+      "policy": "xgboost at chosen threshold",
+      "threshold": 0.1851851851851851,
+      "expected_cost_per_1000": 595.0,
+      "approval_rate": 0.315
+    },
+    {
+      "policy": "xgboost at default 0.5",
+      "threshold": 0.5,
+      "expected_cost_per_1000": 750.0,
+      "approval_rate": 0.76
+    },
+    {
+      "policy": "catboost at chosen threshold",
+      "threshold": 0.2592592592592592,
+      "expected_cost_per_1000": 570.0,
+      "approval_rate": 0.43
+    },
+    {
+      "policy": "catboost at default 0.5",
+      "threshold": 0.5,
+      "expected_cost_per_1000": 620.0,
+      "approval_rate": 0.68
     },
     {
       "policy": "always approve",
@@ -408,79 +858,129 @@
     },
     {
       "policy": "oracle threshold (uses holdout labels, not deployable)",
-      "threshold": 0.33502512562814074,
-      "expected_cost_per_1000": 485.0,
-      "approval_rate": 0.575
+      "threshold": 0.24145728643216083,
+      "expected_cost_per_1000": 495.0,
+      "approval_rate": 0.505
     }
   ],
   "calibration": {
     "model_type": "logistic",
-    "brier_raw": 0.15430810594515923,
-    "brier_calibrated": 0.1622560023030402,
+    "brier_raw": 0.15312360776049777,
+    "brier_calibrated": 0.16125224391718873,
     "method": "isotonic",
     "fitted_on": "inner-fold out-of-fold predictions of the development partition",
     "rows": 200
+  },
+  "conformal": {
+    "logistic": {
+      "alpha": 0.1,
+      "target_coverage": 0.9,
+      "empirical_coverage": 0.915,
+      "rows": 200,
+      "approve_rate": 0.57,
+      "review_rate": 0.35,
+      "reject_rate": 0.08,
+      "empty_set_rate": 0.0,
+      "quantile": 0.6428571428571428,
+      "model_version": "20261031T151314Z"
+    },
+    "lightgbm": {
+      "alpha": 0.1,
+      "target_coverage": 0.9,
+      "empirical_coverage": 0.91,
+      "rows": 200,
+      "approve_rate": 0.58,
+      "review_rate": 0.385,
+      "reject_rate": 0.035,
+      "empty_set_rate": 0.0,
+      "quantile": 0.6666666666666666,
+      "model_version": "20261031T151314Z"
+    },
+    "xgboost": {
+      "alpha": 0.1,
+      "target_coverage": 0.9,
+      "empirical_coverage": 0.91,
+      "rows": 200,
+      "approve_rate": 0.62,
+      "review_rate": 0.38,
+      "reject_rate": 0.0,
+      "empty_set_rate": 0.0,
+      "quantile": 0.6818181818181818,
+      "model_version": "20261031T151314Z"
+    },
+    "catboost": {
+      "alpha": 0.1,
+      "target_coverage": 0.9,
+      "empirical_coverage": 0.915,
+      "rows": 200,
+      "approve_rate": 0.61,
+      "review_rate": 0.355,
+      "reject_rate": 0.035,
+      "empty_set_rate": 0.0,
+      "quantile": 0.6875,
+      "model_version": "20261031T151314Z"
+    }
   },
   "permutation_importance": [
     {
       "feature": "checking_status",
       "label": "checking account status",
-      "importance_mean": 0.0973809523809524,
-      "importance_std": 0.025415035634072623
+      "importance_mean": 0.10065476190476193,
+      "importance_std": 0.02514432546668539
     },
     {
       "feature": "purpose",
       "label": "loan purpose",
-      "importance_mean": 0.03466666666666668,
-      "importance_std": 0.010768750456508778
+      "importance_mean": 0.032833333333333305,
+      "importance_std": 0.009694131754633354
     },
     {
       "feature": "credit_amount",
       "label": "credit amount",
-      "importance_mean": 0.03047619047619047,
-      "importance_std": 0.007240209590932783
+      "importance_mean": 0.0283333333333333,
+      "importance_std": 0.007605642970101996
     },
     {
       "feature": "duration_months",
       "label": "loan duration in months",
-      "importance_mean": 0.027416666666666666,
-      "importance_std": 0.010676261893903284
+      "importance_mean": 0.02644047619047618,
+      "importance_std": 0.01116568302094698
     },
     {
       "feature": "credit_history",
       "label": "credit history",
-      "importance_mean": 0.02666666666666666,
-      "importance_std": 0.01149768289779034
-    },
-    {
-      "feature": "savings",
-      "label": "savings balance",
-      "importance_mean": 0.01784523809523809,
-      "importance_std": 0.012607412650559835
+      "importance_mean": 0.025261904761904763,
+      "importance_std": 0.011261401378058259
     },
     {
       "feature": "installment_rate",
       "label": "installment rate as percent of income",
-      "importance_mean": 0.016654761904761905,
-      "importance_std": 0.011337740489640395
+      "importance_mean": 0.01680952380952383,
+      "importance_std": 0.01112185138505691
+    },
+    {
+      "feature": "savings",
+      "label": "savings balance",
+      "importance_mean": 0.01523809523809525,
+      "importance_std": 0.0108971173038047
     },
     {
       "feature": "other_debtors",
       "label": "other debtors",
-      "importance_mean": 0.006071428571428561,
-      "importance_std": 0.003658075897842531
+      "importance_mean": 0.00505952380952388,
+      "importance_std": 0.003151615681820283
     },
     {
-      "feature": "housing",
-      "label": "housing",
-      "importance_mean": 0.005559523809523803,
-      "importance_std": 0.004688436225476763
+      "feature": "foreign_worker",
+      "label": "foreign worker flag",
+      "importance_mean": 0.004285714285714304,
+      "importance_std": 0.003872617400787184
     },
     {
-      "feature": "personal_status_sex",
-      "label": "personal status and sex",
-      "importance_mean": 0.005511904761904762,
-      "importance_std": 0.007931118209585716
+      "feature": "age_years",
+      "label": "age in years",
+      "importance_mean": 0.0032619047619047324,
+      "importance_std": 0.0018959618144398728
     }
   ],
   "consistency": {

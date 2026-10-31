@@ -29,7 +29,7 @@ from credit_risk.data.schema import (
     VALID_CODES,
 )
 from credit_risk.features.build import add_derived_features
-from credit_risk.models import registry
+from credit_risk.models import explain, registry
 
 MAX_BATCH = 500
 
@@ -83,13 +83,23 @@ class ReasonCode(BaseModel):
 class Prediction(BaseModel):
     probability_of_default: float
     decision: Literal["approve", "reject"]
+    conformal_set: Literal["approve", "review", "reject"]
     threshold: float
     expected_cost_approve: float
     expected_cost_reject: float
     reason_codes: list[ReasonCode]
+    top_reasons: list[ReasonCode]
     model_type: str
     model_version: str
     calibration: str
+
+
+class Explanation(BaseModel):
+    model_type: str
+    model_version: str
+    method: str
+    top_k: int
+    reasons: list[ReasonCode]
 
 
 class BatchRequest(BaseModel):
@@ -171,13 +181,16 @@ def _predict_one(bundle, metadata: dict, applicant: Applicant) -> Prediction:
     cost_approve = float(cost.get("cost_bad_approved", 5)) * probability
     cost_reject = float(cost.get("cost_good_rejected", 1)) * (1.0 - probability)
     reason_codes = bundle.reason_codes(frame, top_k=3)
+    conformal_set = str(bundle.conformal_decision(frame)[0])
     return Prediction(
         probability_of_default=round(probability, 6),
         decision="approve" if probability < threshold else "reject",
+        conformal_set=conformal_set,
         threshold=round(threshold, 6),
         expected_cost_approve=round(cost_approve, 6),
         expected_cost_reject=round(cost_reject, 6),
         reason_codes=[ReasonCode(**code) for code in reason_codes],
+        top_reasons=[ReasonCode(**code) for code in reason_codes],
         model_type=bundle.model_type,
         model_version=str(metadata.get("version", "unknown")),
         calibration=str(metadata.get("calibration", "isotonic")),
@@ -217,6 +230,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             }
 
     @app.get("/model/info")
+    @app.get("/model-info", include_in_schema=False)
     def model_info() -> dict:
         try:
             metadata = store.metadata
@@ -239,22 +253,65 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             "metrics": {
                 "holdout": {
                     key: holdout.get(key)
-                    for key in ("roc_auc", "pr_auc", "ks", "brier", "accuracy_at_threshold")
+                    for key in (
+                        "roc_auc",
+                        "pr_auc",
+                        "ks",
+                        "brier",
+                        "ece",
+                        "accuracy_at_threshold",
+                        "expected_cost_per_1000",
+                    )
                 },
                 "cv_mean": {
                     key: cv_mean.get(key)
-                    for key in ("roc_auc", "pr_auc", "ks", "brier", "accuracy_at_threshold")
+                    for key in (
+                        "roc_auc",
+                        "pr_auc",
+                        "ks",
+                        "brier",
+                        "ece",
+                        "accuracy_at_threshold",
+                        "expected_cost_per_1000",
+                    )
                 },
             },
+            "conformal": metadata.get("conformal"),
             "reason_codes": {
-                "method": "exact tree SHAP, LightGBM pred_contrib=True"
-                if bundle.model_type == "lightgbm"
-                else "logistic coefficients times encoded values",
+                "method": {
+                    "logistic": "logistic coefficients times encoded values",
+                    "lightgbm": "exact tree SHAP, LightGBM pred_contrib=True",
+                    "xgboost": "exact tree SHAP, XGBoost pred_contribs=True",
+                    "catboost": "exact tree SHAP, CatBoost ShapValues",
+                }.get(bundle.model_type, "feature contributions"),
                 "top_k": 3,
                 "scale": "log-odds contribution to the base model score",
                 "caveat": "contributions, not causal explanations",
             },
         }
+
+    @app.post("/explain", response_model=Explanation)
+    def explain_applicant(applicant: Applicant) -> Explanation:
+        """Top contributed attributes for one applicant, from SHAP when available."""
+        try:
+            bundle = store.bundle
+            metadata = store.metadata
+        except ModelUnavailable as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        frame = applicant_frame(applicant)
+        reasons = explain.explain_row(bundle, frame, top_k=5)
+        method = (
+            "shap.TreeExplainer"
+            if bundle.family == "tree" and explain.shap_available()
+            else "coefficient times encoded value"
+        )
+        return Explanation(
+            model_type=bundle.model_type,
+            model_version=str(metadata.get("version", "unknown")),
+            method=method,
+            top_k=len(reasons),
+            reasons=[ReasonCode(**code) for code in reasons],
+        )
 
     @app.post("/predict", response_model=Prediction)
     def predict(applicant: Applicant) -> Prediction:

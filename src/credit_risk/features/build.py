@@ -17,6 +17,7 @@ import pandas as pd
 from sklearn.model_selection import StratifiedKFold, train_test_split
 
 from credit_risk.config import Config
+from credit_risk.data import contracts
 from credit_risk.data.schema import (
     CATEGORICAL_COLUMNS,
     DERIVED_COLUMNS,
@@ -88,6 +89,11 @@ def build_dataset(raw_frame: pd.DataFrame, cfg: Config) -> pd.DataFrame:
 
 
 def write_processed(frame: pd.DataFrame, cfg: Config) -> Path:
+    result = contracts.check(frame, "processed")
+    if not result["ok"]:
+        raise ValueError(
+            "processed frame violates the data contract: " + contracts.format_check(result)
+        )
     cfg.processed_dir.mkdir(parents=True, exist_ok=True)
     frame.to_csv(cfg.processed_file, index=False)
     return cfg.processed_file
@@ -106,6 +112,13 @@ def load_processed(cfg: Config) -> pd.DataFrame:
     ]
     if missing:
         raise ValueError(f"processed file is missing columns {missing}")
+    result = contracts.check(frame, "processed")
+    if not result["ok"]:
+        raise ValueError(
+            f"{cfg.processed_file} violates the processed contract: "
+            + contracts.format_check(result)
+            + "; rebuild it with 'credit_risk features --force'"
+        )
     return frame
 
 

@@ -11,39 +11,32 @@ Protocol, stated once here and repeated in the README:
    same inner-fold calibration and threshold rule, and is then scored once on the
    held-out 20 percent. That holdout number is the honest estimate; the CV numbers
    are the stable headline because all 1000 rows participate.
+
+Every candidate from ``train.candidates`` goes through the same protocol. A
+candidate whose optional library is missing is recorded as skipped, never fatal.
 """
 
 from __future__ import annotations
 
+import importlib.metadata
 import json
 import platform
 from datetime import UTC, datetime
 from pathlib import Path
 
-import lightgbm
 import numpy as np
 import pandas as pd
-import sklearn
 from sklearn.base import clone
-from sklearn.calibration import IsotonicRegression
-from sklearn.compose import ColumnTransformer
-from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
+from credit_risk import tracking
 from credit_risk.config import Config
 from credit_risk.data.fetch import sha256_file
-from credit_risk.data.schema import (
-    CATEGORICAL_COLUMNS,
-    DERIVED_COLUMNS,
-    FEATURE_COLUMNS,
-    LABEL_COLUMN,
-    NUMERIC_COLUMNS,
-)
+from credit_risk.data.schema import FEATURE_COLUMNS, LABEL_COLUMN
 from credit_risk.features.build import feature_frame, load_processed
-from credit_risk.models import registry
+from credit_risk.models import calibration, candidates, registry
 from credit_risk.models.bundle import CalibratedModel
+from credit_risk.models.conformal import coverage, fit_conformal
 from credit_risk.models.metrics import (
     always_approve_cost,
     always_reject_cost,
@@ -53,12 +46,12 @@ from credit_risk.models.metrics import (
 )
 from credit_risk.monitor.drift import build_reference
 
-NUMERIC_FEATURES: list[str] = list(NUMERIC_COLUMNS + DERIVED_COLUMNS)
 MEAN_SD_KEYS = (
     "roc_auc",
     "pr_auc",
     "ks",
     "brier",
+    "ece",
     "accuracy_at_threshold",
     "expected_cost_per_1000",
     "cost_0_5_per_1000",
@@ -66,35 +59,13 @@ MEAN_SD_KEYS = (
 )
 
 
-def make_pipeline(model_type: str, cfg: Config) -> Pipeline:
-    """One-hot encoded columns, scaled only for the logistic baseline."""
-    if model_type == "logistic":
-        numeric = Pipeline([("scale", StandardScaler())])
-        model = LogisticRegression(random_state=cfg.seed, **cfg.train.logistic)
-    elif model_type == "lightgbm":
-        numeric = "passthrough"
-        model = lightgbm.LGBMClassifier(random_state=cfg.seed, **cfg.train.lightgbm)
-    else:
-        raise ValueError(f"unknown model type: {model_type}")
-
-    preprocess = ColumnTransformer(
-        [
-            ("num", numeric, NUMERIC_FEATURES),
-            (
-                "cat",
-                OneHotEncoder(
-                    handle_unknown="ignore", sparse_output=False, dtype=np.float64
-                ),
-                list(CATEGORICAL_COLUMNS),
-            ),
-        ],
-        remainder="drop",
-    )
-    return Pipeline([("preprocess", preprocess), ("model", model)])
+def make_pipeline(model_type: str, cfg: Config):
+    """Backwards compatible wrapper around the candidate factory."""
+    return candidates.make_pipeline(model_type, cfg)
 
 
 def fit_calibrated(
-    estimator: Pipeline,
+    estimator,
     frame: pd.DataFrame,
     cfg: Config,
     model_type: str,
@@ -116,10 +87,12 @@ def fit_calibrated(
 
     fitted = clone(estimator)
     fitted.fit(features, target)
-    calibrator = IsotonicRegression(out_of_bounds="clip", y_min=0.0, y_max=1.0)
-    calibrator.fit(oof, target)
-    inner_probability = np.clip(calibrator.predict(oof), 0.0, 1.0)
+
+    calibrator, method, table = calibration.resolve(cfg.calibration.method, oof, target)
+    inner_probability = np.clip(np.asarray(calibrator.predict(oof), dtype=float), 0.0, 1.0)
     selection = select_threshold(target, inner_probability, cfg.cost)
+    conformal = fit_conformal(inner_probability, target, cfg.conformal.alpha)
+
     return CalibratedModel(
         model_type=model_type,
         estimator=fitted,
@@ -127,8 +100,25 @@ def fit_calibrated(
         threshold=selection["threshold"],
         feature_columns=list(FEATURE_COLUMNS),
         threshold_detail=selection,
-        calibration_method=cfg.calibration.method,
+        calibration_method=method,
+        family="linear" if model_type == "logistic" else "tree",
+        encoding="native" if model_type in candidates.NATIVE_CANDIDATES else "one_hot",
+        conformal=conformal,
+        calibration_table=table,
     )
+
+
+def _conformal_summary(model: CalibratedModel, holdout_metrics: dict) -> dict | None:
+    """Conformal policy plus the coverage actually measured on the holdout.
+
+    ``to_dict`` carries the calibration-side settings; the empirical coverage can
+    only be observed on rows the calibrator never saw, so it is merged in here.
+    """
+    if not model.conformal:
+        return None
+    summary = model.conformal.to_dict()
+    summary.update(holdout_metrics.get("conformal") or {})
+    return summary
 
 
 def _prediction_frame(
@@ -146,7 +136,7 @@ def _prediction_frame(
 
 
 def cross_validate(
-    estimator: Pipeline,
+    estimator,
     frame: pd.DataFrame,
     cfg: Config,
     model_type: str,
@@ -192,13 +182,14 @@ def cross_validate(
 
 
 def _package_versions() -> dict[str, str]:
-    return {
-        "python": platform.python_version(),
-        "numpy": np.__version__,
-        "pandas": pd.__version__,
-        "scikit_learn": sklearn.__version__,
-        "lightgbm": lightgbm.__version__,
-    }
+    versions = {"python": platform.python_version(), "numpy": np.__version__,
+                "pandas": pd.__version__}
+    for name in ("scikit-learn", "lightgbm", "xgboost", "catboost", "mlflow"):
+        try:
+            versions[name.replace("-", "_")] = importlib.metadata.version(name)
+        except importlib.metadata.PackageNotFoundError:
+            versions[name.replace("-", "_")] = "not installed"
+    return versions
 
 
 def _raw_sha256(cfg: Config) -> str:
@@ -224,6 +215,7 @@ def _metadata(
         "version": version,
         "model_type": model_type,
         "calibration": model.calibration_method,
+        "calibration_selection": model.calibration_table,
         "seed": cfg.seed,
         "config_hash": cfg.config_hash,
         "data_sha256": _raw_sha256(cfg),
@@ -233,8 +225,11 @@ def _metadata(
         "label": cfg.train.label,
         "features": list(FEATURE_COLUMNS),
         "encoded_features": len(model.feature_names),
+        "family": model.family,
+        "encoding": model.encoding,
         "threshold": model.threshold,
         "threshold_detail": model.threshold_detail,
+        "conformal": model.conformal.to_dict() if model.conformal else None,
         "cost_matrix": {
             "cost_bad_approved": cfg.cost.cost_bad_approved,
             "cost_good_rejected": cfg.cost.cost_good_rejected,
@@ -251,13 +246,39 @@ def _metadata(
     }
 
 
-def run_training(cfg: Config, version: str | None = None) -> dict:
-    """Fit baseline and main model, register both, and return the run summary."""
+def _tracking_metrics(holdout_metrics: dict, cv_summary: dict) -> dict:
+    metrics = {
+        "holdout_roc_auc": holdout_metrics["roc_auc"],
+        "holdout_pr_auc": holdout_metrics["pr_auc"],
+        "holdout_ks": holdout_metrics["ks"],
+        "holdout_brier": holdout_metrics["brier"],
+        "holdout_ece": holdout_metrics["ece"],
+        "holdout_cost_per_1000": holdout_metrics["expected_cost_per_1000"],
+        "holdout_cost_at_0_5": holdout_metrics["cost_0_5_per_1000"],
+        "holdout_approval_rate": holdout_metrics["approval_rate"],
+        "cv_roc_auc_mean": cv_summary["mean"]["roc_auc"],
+        "cv_roc_auc_sd": cv_summary["sd"]["roc_auc"],
+        "cv_cost_per_1000_mean": cv_summary["mean"]["expected_cost_per_1000"],
+        "cv_cost_per_1000_sd": cv_summary["sd"]["expected_cost_per_1000"],
+    }
+    conformal = holdout_metrics.get("conformal") or {}
+    if conformal:
+        metrics["holdout_conformal_coverage"] = conformal["empirical_coverage"]
+    return metrics
+
+
+def run_training(cfg: Config, version: str | None = None, track: bool = False) -> dict:
+    """Fit every configured candidate, register them, and return the run summary."""
     frame = load_processed(cfg)
     development = frame[frame["is_heldout"] == 0].reset_index(drop=True)
     holdout = frame[frame["is_heldout"] == 1].reset_index(drop=True)
     if development.empty or holdout.empty:
         raise ValueError("processed frame has an empty development or holdout partition")
+
+    usable, skipped = candidates.available_candidates(cfg.train.candidates)
+    if not usable:
+        raise RuntimeError(f"no candidate could be trained; skipped: {skipped}")
+    deployed = cfg.train.deployed_model if cfg.train.deployed_model in usable else usable[0]
 
     run_version = version or registry.new_version()
     cfg.reports_dir.mkdir(parents=True, exist_ok=True)
@@ -268,7 +289,7 @@ def run_training(cfg: Config, version: str | None = None) -> dict:
         "version": run_version,
         "seed": cfg.seed,
         "config_hash": cfg.config_hash,
-        "deployed_model": cfg.train.deployed_model,
+        "deployed_model": deployed,
         "rows": {
             "total": int(len(frame)),
             "development": int(len(development)),
@@ -276,6 +297,8 @@ def run_training(cfg: Config, version: str | None = None) -> dict:
             "bad_rate": float(frame[LABEL_COLUMN].mean()),
         },
         "models": {},
+        "skipped": skipped,
+        "tracking": {},
     }
 
     holdout_target = holdout[LABEL_COLUMN].to_numpy()
@@ -285,16 +308,16 @@ def run_training(cfg: Config, version: str | None = None) -> dict:
         "default_threshold": 0.5,
     }
 
-    for model_type in ("logistic", "lightgbm"):
-        estimator = make_pipeline(model_type, cfg)
-        cv_summary, cv_predictions = cross_validate(estimator, frame, cfg, model_type)
+    for model_type in usable:
+        spec = candidates.spec(model_type, cfg)
+        cv_summary, cv_predictions = cross_validate(spec.estimator, frame, cfg, model_type)
 
-        model = fit_calibrated(estimator, development, cfg, model_type)
+        model = fit_calibrated(spec.estimator, development, cfg, model_type)
         probability = model.predict_proba_bad(holdout)
         holdout_metrics = classification_metrics(
             holdout_target, probability, model.threshold, cfg.cost
         )
-        holdout_predictions = _prediction_frame(holdout, probability, model.threshold)
+        holdout_metrics["conformal"] = coverage(probability, holdout_target, model.conformal)
 
         metadata = _metadata(
             cfg,
@@ -313,12 +336,16 @@ def run_training(cfg: Config, version: str | None = None) -> dict:
         cv_path = cfg.reports_dir / f"predictions_cv_{model_type}.csv"
         holdout_path = cfg.reports_dir / f"predictions_holdout_{model_type}.csv"
         cv_predictions.to_csv(cv_path, index=False)
+        holdout_predictions = _prediction_frame(holdout, probability, model.threshold)
         holdout_predictions.to_csv(holdout_path, index=False)
 
         summary["models"][model_type] = {
             "artifact": str(directory),
             "threshold": model.threshold,
             "threshold_detail": model.threshold_detail,
+            "calibration": model.calibration_method,
+            "calibration_selection": model.calibration_table,
+            "conformal": _conformal_summary(model, holdout_metrics),
             "holdout": holdout_metrics,
             "cv": {
                 "mean": cv_summary["mean"],
@@ -329,8 +356,36 @@ def run_training(cfg: Config, version: str | None = None) -> dict:
             "predictions": {"cv": str(cv_path), "holdout": str(holdout_path)},
         }
 
-    registry.write_latest(cfg, cfg.train.deployed_model, run_version)
-    summary["latest"] = f"{cfg.train.deployed_model}/{run_version}"
+        if track:
+            summary["tracking"][model_type] = tracking.log_training_run(
+                cfg,
+                model_type=model_type,
+                params={
+                    "model": model_type,
+                    "seed": cfg.seed,
+                    "threshold": model.threshold,
+                    "calibration": model.calibration_method,
+                    "conformal_alpha": cfg.conformal.alpha,
+                    "config_hash": cfg.config_hash,
+                    "candidates": ",".join(cfg.train.candidates),
+                },
+                metrics=_tracking_metrics(holdout_metrics, cv_summary),
+                estimator=model.estimator,
+                artifacts=[holdout_path, cv_path],
+                tags={"pipeline": "credit-risk", "version": run_version},
+            )
+
+    champion = min(
+        summary["models"].items(), key=lambda item: item[1]["holdout"]["expected_cost_per_1000"]
+    )
+    summary["champion"] = {"model": champion[0], "cost_per_1000":
+                          champion[1]["holdout"]["expected_cost_per_1000"]}
+    if track and champion[0] in summary["tracking"]:
+        entry = summary["tracking"][champion[0]]
+        summary["champion"]["alias"] = tracking.set_champion(champion[0], entry.get("version"))
+
+    registry.write_latest(cfg, deployed, run_version)
+    summary["latest"] = f"{deployed}/{run_version}"
     cfg.train_summary_file.write_text(
         json.dumps(summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
@@ -343,21 +398,30 @@ def format_summary(summary: dict) -> str:
         f"rows: {summary['rows']['total']} total, {summary['rows']['development']} development,"
         f" {summary['rows']['holdout']} holdout, bad rate {summary['rows']['bad_rate']:.3f}",
         "",
-        f"{'model':10s} {'roc_auc':>8s} {'pr_auc':>8s} {'ks':>7s} {'brier':>7s}"
-        f" {'acc':>6s} {'cost/1k':>9s} {'cost@.5':>9s}",
+        f"{'model':10s} {'roc_auc':>8s} {'pr_auc':>8s} {'brier':>7s} {'ece':>6s}"
+        f" {'cost/1k':>9s} {'cover':>6s}",
     ]
     for model_type, entry in summary["models"].items():
         holdout = entry["holdout"]
+        conformal = holdout.get("conformal") or {}
+        cover = conformal.get("empirical_coverage", float("nan"))
         lines.append(
             f"{model_type:10s} {holdout['roc_auc']:8.4f} {holdout['pr_auc']:8.4f}"
-            f" {holdout['ks']:7.4f} {holdout['brier']:7.4f}"
-            f" {holdout['accuracy_at_threshold']:6.3f}"
-            f" {holdout['expected_cost_per_1000']:9.1f} {holdout['cost_0_5_per_1000']:9.1f}"
+            f" {holdout['brier']:7.4f} {holdout['ece']:6.4f}"
+            f" {holdout['expected_cost_per_1000']:9.1f} {cover:6.3f}"
         )
+    if summary.get("skipped"):
+        lines.append("")
+        for name, reason in summary["skipped"].items():
+            lines.append(f"skipped {name}: {reason}")
     lines.append("")
     lines.append(f"holdout, always approve: {summary['policies']['always_approve_per_1000']:.1f}"
                  f" per 1000; always reject: {summary['policies']['always_reject_per_1000']:.1f}")
     lines.append(f"latest -> {summary['latest']}")
+    if summary.get("champion"):
+        champion = summary["champion"]
+        lines.append(f"champion by held-out cost -> {champion['model']}"
+                     f" ({champion['cost_per_1000']:.1f} per 1000)")
     return "\n".join(lines)
 
 

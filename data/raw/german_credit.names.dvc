@@ -1,0 +1,5 @@
+outs:
+- md5: 9e5a5db935ce1ee6720d95ad614d873c
+  size: 4679
+  hash: md5
+  path: german_credit.names

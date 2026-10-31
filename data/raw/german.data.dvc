@@ -1,0 +1,5 @@
+outs:
+- md5: 6b94c2e35480e671545e52a808a8a549
+  size: 79793
+  hash: md5
+  path: german.data

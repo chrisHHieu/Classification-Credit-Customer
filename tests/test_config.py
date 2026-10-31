@@ -19,6 +19,47 @@ def test_default_config_values(tmp_path: Path) -> None:
     # The test config shrinks the fold count to keep the suite fast.
     assert cfg.split.n_splits == 3
     assert cfg.train.deployed_model == "logistic"
+    assert cfg.train.candidates == ["logistic", "lightgbm"]
+    assert cfg.conformal.alpha == 0.1
+    # The test config shrinks the search budget to two trials.
+    assert cfg.train.search.trials == 2
+    assert cfg.train.search.seed == 42
+    assert cfg.optuna_storage == tmp_path / "reports" / "optuna.db"
+    assert cfg.evidently_html == tmp_path / "reports" / "drift_evidently.html"
+
+
+def test_full_config_lists_all_four_candidates(tmp_path: Path) -> None:
+    cfg = load_config(REPO_ROOT / "configs" / "full.yaml", root=tmp_path)
+    assert cfg.train.candidates == ["logistic", "lightgbm", "xgboost", "catboost"]
+    assert cfg.calibration.method == "auto"
+    assert cfg.train.deployed_model in cfg.train.candidates
+
+
+def test_deployed_model_must_be_a_candidate(tmp_path: Path) -> None:
+    cfg = build_test_config(tmp_path)
+    with pytest.raises(ConfigError, match="deployed_model"):
+        replace(cfg.train, deployed_model="catboost")
+
+
+def test_unknown_candidate_is_rejected(tmp_path: Path) -> None:
+    cfg = build_test_config(tmp_path)
+    with pytest.raises(ConfigError, match="unknown models"):
+        replace(cfg.train, candidates=["logistic", "tabpfn"])
+
+
+def test_calibration_method_domain(tmp_path: Path) -> None:
+    cfg = build_test_config(tmp_path)
+    with pytest.raises(ConfigError, match="calibration.method"):
+        replace(cfg.calibration, method="spline")
+    assert replace(cfg.calibration, method="auto").method == "auto"
+
+
+def test_conformal_alpha_must_be_a_probability(tmp_path: Path) -> None:
+    cfg = build_test_config(tmp_path)
+    with pytest.raises(ConfigError, match="conformal.alpha"):
+        replace(cfg.conformal, alpha=0.0)
+    with pytest.raises(ConfigError, match="conformal.alpha"):
+        replace(cfg.conformal, alpha=1.5)
 
 
 def test_paths_resolve_under_root(tmp_path: Path) -> None:

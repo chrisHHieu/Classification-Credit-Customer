@@ -36,46 +36,65 @@ Real credit decisions about people. The data is a 1970s German credit sample wit
 
 ## Deployment decision
 
-Both candidates go through the identical protocol and both are registered. The deployed one is the model with the lower held-out expected cost, which is the objective the project is built around: logistic regression at 515.0 per 1000 against LightGBM at 640.0. The logistic model also has the higher held-out ROC-AUC (0.801 against 0.768). LightGBM ranks slightly better in cross-validation (0.786 against 0.764) and can produce exact tree SHAP reason codes, so it stays registered as the challenger and can be promoted with one config value.
+All four candidates go through the identical protocol and all four are registered
+(`credit_risk_logistic`, `credit_risk_lightgbm`, `credit_risk_xgboost`,
+`credit_risk_catboost`). The deployed one is the model with the lower held-out
+expected cost, the objective the project is built around: logistic regression at
+555.0 per 1000, against CatBoost at 570.0, LightGBM and XGBoost at 595.0. CatBoost
+has the better held-out ranking (ROC-AUC 0.8047 against 0.8002) and the better
+Brier (0.1549 against 0.1613); it loses on cost because of where its calibrated
+probabilities cross the 5:1 threshold, not because it ranks worse. With 200 holdout
+rows the 15.0 gap is inside noise, so the rule stays cost, and the rule is recorded
+in `reports/train_summary.json` next to the numbers.
 
 ## Measured performance
 
-Held-out 200 rows, each model at its own threshold (0.190 for logistic, 0.200 for LightGBM):
+Held-out 200 rows, each model at its own cost-optimal threshold (0.189 logistic,
+0.177 LightGBM, 0.185 XGBoost, 0.259 CatBoost):
 
-| Metric | Logistic regression (deployed) | LightGBM (challenger) |
-|---|---|---|
-| ROC-AUC | 0.801 | 0.768 |
-| PR-AUC | 0.615 | 0.625 |
-| KS | 0.536 | 0.440 |
-| Brier | 0.162 | 0.169 |
-| Accuracy at threshold | 0.645 | 0.520 |
-| Expected cost per 1000 | 515.0 | 640.0 |
-| Cost at threshold 0.5 per 1000 | 840.0 | 725.0 |
-| Approval rate | 0.425 | 0.300 |
-
-Five-fold CV on 800 development rows (mean +/- standard deviation):
-
-| Metric | Logistic regression (deployed) | LightGBM (challenger) |
-|---|---|---|
-| ROC-AUC | 0.764 +/- 0.061 | 0.786 +/- 0.046 |
-| PR-AUC | 0.559 +/- 0.082 | 0.582 +/- 0.075 |
-| KS | 0.429 +/- 0.082 | 0.468 +/- 0.088 |
-| Brier | 0.172 +/- 0.018 | 0.166 +/- 0.017 |
-| Accuracy at threshold | 0.568 +/- 0.061 | 0.591 +/- 0.028 |
-| Expected cost per 1000 | 537.5 +/- 58.8 | 553.8 +/- 100.4 |
-
-Confusion matrices on the held-out rows, each model at its own threshold:
-
-| | logistic: approve | logistic: reject | LightGBM: approve | LightGBM: reject |
+| Metric | Logistic (deployed) | LightGBM | XGBoost | CatBoost |
 |---|---|---|---|---|
-| actual: good | 77 | 63 | 52 | 88 |
-| actual: bad | 8 | 52 | 8 | 52 |
+| ROC-AUC | 0.8002 | 0.7810 | 0.7970 | 0.8047 |
+| PR-AUC | 0.6090 | 0.6305 | 0.6331 | 0.6690 |
+| KS | 0.5190 | 0.4500 | 0.4571 | 0.4952 |
+| Brier | 0.1613 | 0.1637 | 0.1600 | 0.1549 |
+| ECE | 0.0700 | 0.0461 | 0.0611 | 0.0695 |
+| Accuracy at threshold | 0.605 | 0.565 | 0.545 | 0.630 |
+| Expected cost per 1000 | 555.0 | 595.0 | 595.0 | 570.0 |
+| Cost at 0.5 per 1000 | 925.0 | 870.0 | 750.0 | 620.0 |
+| Approval rate at threshold | 0.385 | 0.345 | 0.315 | 0.430 |
+| Conformal coverage, nominal 90 percent | 0.915 | 0.910 | 0.910 | 0.915 |
 
-Both candidates approve the same 8 of the 60 bad applicants. The difference is on good applicants: LightGBM rejects 25 more of them, and 25 extra rejections per 200 applications produces the 125.0 per 1000 gap.
+Five-fold CV on 800 development rows (mean):
+
+| Metric | Logistic (deployed) | LightGBM | XGBoost | CatBoost |
+|---|---|---|---|---|
+| ROC-AUC | 0.7711 | 0.7809 | 0.7854 | 0.7836 |
+| PR-AUC | 0.5657 | 0.5762 | 0.5748 | 0.5677 |
+| KS | 0.4423 | 0.4625 | 0.4583 | 0.4786 |
+| Brier | 0.1695 | 0.1672 | 0.1682 | 0.1689 |
+| ECE | 0.0806 | 0.0811 | 0.0706 | 0.0916 |
+| Accuracy at threshold | 0.619 | 0.625 | 0.596 | 0.611 |
+| Expected cost per 1000 | 541.2 | 510.0 | 553.8 | 543.8 |
+
+The CV mean and the holdout disagree on which model is cheapest: LightGBM is
+cheapest in cross-validation (510.0), logistic is cheapest on the holdout (555.0).
+Both differences are within one fold standard deviation. Report both, do not pick
+the one that flatters the deployed model.
 
 ## Calibration
 
-Isotonic regression is fitted on inner-fold predictions of the development partition only, with the same procedure for both candidates. On the held-out rows the Brier score is 0.1543 before calibration and 0.1623 after for the deployed logistic regression, and 0.1673 before and 0.1685 after for LightGBM. Calibration therefore does not improve Brier at this sample size for either model. It is kept because the cost rule and the stored thresholds are defined on calibrated probabilities, and because it maps scores to the observed default frequency rather than an arbitrary scale. The deployed model's raw scores were the better calibrated of the two before the map was applied.
+The method is chosen per candidate by inner-fold Brier score among isotonic, Platt
+and none; all four ended on isotonic for this run. Held-out ECE is 0.0700 for
+logistic, 0.0461 for LightGBM, 0.0611 for XGBoost and 0.0695 for CatBoost: the
+boosted models were already closer to calibrated than the linear one, so
+calibration changes them least. The calibrator is kept for every candidate because
+the cost threshold is defined on the calibrated scale, and because the same
+protocol has to apply to the model that is deployed.
+
+The split-conformal band at a nominal 90 percent covers 0.910 to 0.915 of holdout
+rows across the four candidates. It is a coverage statement on 200 rows, so treat
+the third decimal as noise.
 
 ## Threshold
 

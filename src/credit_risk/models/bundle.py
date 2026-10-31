@@ -6,17 +6,19 @@ import numpy as np
 import pandas as pd
 
 from credit_risk.data.schema import describe_feature, feature_name_parts
+from credit_risk.models.candidates import CATEGORY_INDICES, NATIVE_CANDIDATES
+from credit_risk.models.conformal import ConformalCalibrator
 
 
 class CalibratedModel:
-    """A fitted pipeline plus an isotonic calibrator and a cost-based threshold.
+    """A fitted pipeline plus a calibrator, a cost threshold and a conformal band.
 
     ``predict_proba_bad`` returns calibrated P(default). ``contributions`` returns
-    per-feature values on the model's log-odds scale. For LightGBM these are exact
-    tree SHAP values from ``pred_contrib=True``; for the logistic baseline they are
-    ``coefficient * encoded value``. They explain the base score, and the calibrator
-    is a monotone transform of it, so the sign and order of the contributions are
-    unaffected by calibration.
+    per-feature values on the model's log-odds scale: exact tree SHAP for the tree
+    candidates (LightGBM ``pred_contrib``, XGBoost ``pred_contribs``, CatBoost
+    ``ShapValues``) and ``coefficient * encoded value`` for the logistic baseline.
+    They explain the base score, and the calibrator is a monotone transform of it,
+    so the sign and order of the contributions are unaffected by calibration.
     """
 
     def __init__(
@@ -28,6 +30,10 @@ class CalibratedModel:
         feature_columns: list[str],
         threshold_detail: dict | None = None,
         calibration_method: str = "isotonic",
+        family: str | None = None,
+        encoding: str | None = None,
+        conformal: ConformalCalibrator | None = None,
+        calibration_table: list[dict] | None = None,
     ) -> None:
         self.model_type = model_type
         self.estimator = estimator
@@ -36,6 +42,10 @@ class CalibratedModel:
         self.feature_columns = list(feature_columns)
         self.threshold_detail = threshold_detail or {}
         self.calibration_method = calibration_method
+        self.family = family or ("linear" if model_type == "logistic" else "tree")
+        self.encoding = encoding or ("native" if model_type in NATIVE_CANDIDATES else "one_hot")
+        self.conformal = conformal
+        self.calibration_table = list(calibration_table or [])
 
     # Scoring -------------------------------------------------------------------
     def raw_score(self, frame: pd.DataFrame) -> np.ndarray:
@@ -54,6 +64,12 @@ class CalibratedModel:
         p = self.predict_proba_bad(frame)
         return np.where(p < self.threshold, "approve", "reject")
 
+    def conformal_decision(self, frame: pd.DataFrame) -> np.ndarray:
+        """Approve / review / reject from the conformal prediction sets."""
+        if self.conformal is None:
+            return self.decide(frame)
+        return self.conformal.decisions(self.predict_proba_bad(frame))
+
     # Explanation ----------------------------------------------------------------
     @property
     def transformer(self):
@@ -63,25 +79,54 @@ class CalibratedModel:
     def feature_names(self) -> list[str]:
         return [str(name) for name in self.transformer.get_feature_names_out()]
 
-    def encoded(self, frame: pd.DataFrame) -> np.ndarray:
-        matrix = self.transformer.transform(frame[self.feature_columns])
-        return np.asarray(matrix, dtype=float)
+    def model_input(self, frame: pd.DataFrame):
+        """Whatever the estimator consumes: an encoded matrix or a category frame."""
+        return self.transformer.transform(frame[self.feature_columns])
 
     def contributions(self, frame: pd.DataFrame) -> np.ndarray:
         """(rows, encoded features) contribution matrix on the log-odds scale."""
-        matrix = self.encoded(frame)
+        matrix = self.model_input(frame)
+        if self.model_type == "logistic":
+            encoded = np.asarray(matrix, dtype=float)
+            coef = np.asarray(self.estimator.named_steps["model"].coef_, dtype=float).ravel()
+            return encoded * coef
+
         if self.model_type == "lightgbm":
             booster = self.estimator.named_steps["model"].booster_
             values = np.asarray(booster.predict(matrix, pred_contrib=True), dtype=float)
             return values[:, :-1]
-        coef = np.asarray(self.estimator.named_steps["model"].coef_, dtype=float).ravel()
-        return matrix * coef
+
+        if self.model_type == "xgboost":
+            import xgboost
+
+            model = self.estimator.named_steps["model"]
+            dmatrix = xgboost.DMatrix(matrix, enable_categorical=True)
+            values = np.asarray(
+                model.get_booster().predict(dmatrix, pred_contribs=True), dtype=float
+            )
+            return values[:, :-1]
+
+        if self.model_type == "catboost":
+            from catboost import Pool
+
+            wrapper = self.estimator.named_steps["model"]
+            model = getattr(wrapper, "model_", wrapper)
+            values = np.asarray(
+                model.get_feature_importance(
+                    Pool(matrix, cat_features=CATEGORY_INDICES), type="ShapValues"
+                ),
+                dtype=float,
+            )
+            return values[:, :-1]
+
+        raise ValueError(f"no contribution method for model type {self.model_type}")
 
     def reason_codes(self, row: pd.DataFrame, top_k: int = 3) -> list[dict]:
         """Top attribute-level contributions, with readable feature names.
 
         One-hot columns of the same attribute are summed, so a single attribute
-        cannot fill the list twice.
+        cannot fill the list twice. Native categorical models already contribute
+        one value per raw attribute.
         """
         values = self.contributions(row)[0]
         names = self.feature_names

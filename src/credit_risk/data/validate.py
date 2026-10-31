@@ -18,6 +18,7 @@ from pathlib import Path
 import pandas as pd
 
 from credit_risk.config import Config
+from credit_risk.data import contracts
 from credit_risk.data.fetch import FetchError, load_raw, read_raw, sha256_file
 from credit_risk.data.schema import (
     CATEGORICAL_COLUMNS,
@@ -211,6 +212,16 @@ def _check_duplicates(report: ValidationReport, frame: pd.DataFrame, cfg: Config
     )
 
 
+def _check_contract(report: ValidationReport, frame: pd.DataFrame, schema: Schema) -> None:
+    """Declarative dtype and domain contract, merged with the business checks."""
+    result = contracts.check(frame, "raw", schema=schema)
+    detail = contracts.format_check(result)
+    if not result["available"]:
+        report.warn("pandera_contract", detail)
+    else:
+        report.add("pandera_contract", bool(result["ok"]), detail)
+
+
 def validate_frame(
     frame: pd.DataFrame,
     cfg: Config,
@@ -231,6 +242,7 @@ def validate_frame(
     _check_numeric(report, frame, active)
     _check_integral(report, frame, active)
     _check_duplicates(report, frame, cfg)
+    _check_contract(report, frame, active)
     return report
 
 
